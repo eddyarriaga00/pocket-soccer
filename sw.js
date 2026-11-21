@@ -1,11 +1,11 @@
 /* PocketSoccer: service worker. Network first, cache as the fallback: online you always get the newest build,
    offline the last one you loaded still plays. (The same approach as PocketFootball.) */
-const CACHE = 'pocketsoccer-v1';
+const CACHE = 'pocketsoccer-v2';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
-const OURS = u => u.origin === self.location.origin || /^(fonts\.googleapis\.com|fonts\.gstatic\.com)$/.test(u.hostname);
+const OURS = u => u.origin === self.location.origin || /^(fonts\.googleapis\.com|fonts\.gstatic\.com|cdn\.jsdelivr\.net)$/.test(u.hostname);
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || !/^https?:/.test(req.url) || !OURS(new URL(req.url))) return;

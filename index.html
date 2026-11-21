@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <title>PocketSoccer</title>
-<meta name="description" content="A soccer career for your phone, played in portrait with one thumb. Every chance that falls to you is yours to play.">
+<meta name="description" content="11-a-side soccer for your phone, played upright: a full 3D match, FIFA-style controls, and your career from a 17-year-old debut.">
 <meta name="theme-color" content="#060a13">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,18 +15,24 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.module.min.js">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
 <link rel="stylesheet" href="css/game.css">
 </head>
 <body>
 <div id="app"></div>
-<script src="js/data.js"></script>
-<script src="js/physics.js"></script>
-<script src="js/moment.js"></script>
-<script src="js/sim.js"></script>
-<script src="js/career.js"></script>
-<script src="js/ui.js"></script>
-<script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.159.0/examples/jsm/"}}</script>
+<script type="module">
+/* three.js and its glTF loader come in as modules; the game's own files are classic scripts that read window.THREE,
+   added here in order once the library is in (the same loading as PocketBasketball). */
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+window.THREE = THREE;
+window.THREE_ADDONS = { GLTFLoader, SkeletonUtils };
+const files = ['js/data.js', 'js/physics.js', 'js/sim.js', 'js/career.js', 'js/model.js', 'js/match.js', 'js/render3d.js', 'js/controls.js', 'js/audio.js', 'js/ui.js'];
+for (const f of files) await new Promise((ok, no) => { const s = document.createElement('script'); s.src = f; s.async = false; s.onload = ok; s.onerror = no; document.body.appendChild(s); });
 PS.boot();
 /* offline play: only on the real site, never on a local test server */
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});

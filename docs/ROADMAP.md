@@ -10,41 +10,45 @@ Update this file after every item.
 - **Rollback points:** before every push to `main`, add a line below with the commit `main` is on and what the push
   brings. To go back: `git revert --no-edit <commit>..main`, then push `main`.
 - **Rollback points** (newest first; the commit is the last good `main` before that change):
-  - (none yet: the first push is the prototype)
+  - `36f6243`, before the 3D rebuild: full 11 v 11 matches, the pocket player models, FIFA-style controls (2026-11-21). That commit is the one-thumb "moments" prototype.
 
 ## How to test
 
-1. Serve the folder without caching: `python3 tools/serve.py 48241`, open `http://localhost:48241/`, use a phone-sized
-   viewport (390×844). (`.claude/launch.json` has this as a `soccer` config; it is gitignored, recreate it if missing.)
-   Opening `index.html` straight from disk also works.
-2. Load the harness: `await fetch('tools/harness.js?'+Date.now()).then(r=>r.text()).then(t=>(0,eval)(t))`
-3. `H.all(60)` plays 60 of each kind of moment with the test bot and returns how they ended; `H.season()` plays a whole
-   career season on auto. Neither should throw, and the numbers should stay near the ones under "Balance" below.
-4. Play a career match by hand at phone size: a moment, a free kick, a penalty; check the result screen and the hub.
+1. `node tools/harness.js 20`: twenty computer-v-computer matches with the real engine, no browser. Every match must
+   finish; the averages should stay near "Balance" below.
+2. Serve the folder: `python3 tools/serve.py 48241`, open `http://localhost:48241/` at phone size (390×844). (The
+   models and the modules need http; `file://` does not work any more.)
+3. Play a Kick-off match: move, pass, shoot, tackle, pause, sim to full time. Then a career match day, and Sim match.
+4. Headless checks that worked: playwright-core 1.58 with WebKit (`webkit.launch()`, iPhone 13 device) for real-GPU
+   frame times (60 fps measured on an M1) and real pointer input; Chromium headless shell with
+   `--use-angle=swiftshader --enable-unsafe-swiftshader` for screenshots.
 
 ## Status
 
-### M0 Prototype (2026-11-16) ✅
-- [x] Pitch and ball physics: drag crisis, Magnus curl, spin decay, bounce, roll, posts, bar, net, curl-aware aim solver
-- [x] Live moments, seven kinds (edge of the box, run in behind, counter, wing, midfield, free kick, penalty)
-- [x] One-thumb controls: floating joystick, flick to shoot/pass/through ball, bend to curl, tap teammate, tap the goal, knock-on, call, tackle, slide
-- [x] AI: pressing, covering defender, delayed marking (runs can beat it), interceptions, fouls that chain into set pieces, offside, keepers (angle play, reaction, dives, catches, parries, penalty guesses), jumping walls, headers
-- [x] Broadcast camera (behind the attack), 2.5D renderer, crowd, boards, nets, slow motion on shots, celebrations
-- [x] Match simulation with commentary, moment scheduling by position and minutes, Play it / Sim it
-- [x] Ratings out of 10 with their reasons, XP, manager trust (Bench / Rotation / Starter), substitutes
-- [x] Career: create a player (name, nation, position, foot, first club), 12-club league, fixtures, table, Golden Boot race, skills, history, honours, news
-- [x] Season end: awards, transfer offers from bigger clubs, ageing, retirement
-- [x] Quick Moments practice mode, How to play
-- [x] PWA (manifest, service worker, icon), test harness
+### M0.5 The 3D game (2026-11-21) ✅
+- [x] Full 11 v 11 real-time engine (js/match.js): formations, shape, pressing and cover, marking with a reaction
+      delay, pass choice by lane safety and space, through balls, crosses, headers, dribbling, clearances
+- [x] Every restart: kick-off, throw-in, corner, goal kick, free kick (wall), penalty; fouls, cards, offside, halves
+- [x] Keepers: angle play, reaction, dives, catches, parries (rebounds, round the post for corners), distribution
+- [x] The pocket player from PocketBasketball (models/), dressed by a soccer kit shader: short sleeves and collar,
+      long socks, boots, club designs (stripes, hoops, sash, band, yokes, halves), long-sleeved keepers
+- [x] Running from the clips placed on the ground; kicks, headers, slides, dives, throw-ins, falls and five
+      celebrations posed in code
+- [x] Stadium: striped pitch, markings, goals with nets, corner flags, ad boards, stands, floodlights
+- [x] FIFA-style controls (stick + four context buttons, hold-to-power shots, lobs, through balls, switch, press,
+      call and run), keyboard
+- [x] My Career plays real matches (you control only your player, bench and substitutions included), Sim match;
+      Kick-off mode; pause menu (camera, sound, sim to full time); half time and full time with team stats
+- [x] Sound synthesized in the browser
+- [x] 60 fps on an iPhone-sized WebKit page (M1), about 0.9 s to simulate a whole match headless
 
 ### M1 Feel (next)
-- [ ] Play it on a real phone: tune flick speed thresholds, power curve, curl strength, joystick radius
-- [ ] Sound: kick, whistle, crowd swell on chances, net ripple, goal roar
-- [ ] Goal celebration and an instant replay of goals (record the moment's positions, play them back)
-- [ ] Player animation pass (kick, header, tackle, dive, celebration poses)
-- [ ] Haptics on Android (`navigator.vibrate`) for kicks and goals
-- [ ] Trajectory hint while aiming free kicks and penalties (optional, off on Hard)
-- [ ] Difficulty setting (keeper and defender strength)
+- [ ] Play it on a real phone: stick size, button spacing, shot power curve, pass assist cone
+- [ ] Skill moves (a button for a step-over / roulette), first-time shots and volleys on demand
+- [ ] Instant replay of goals; a goal celebration camera that circles
+- [ ] Off-screen teammate markers at the screen edge
+- [ ] More throw-ins and offsides (the AI keeps the ball in and stays onside a little too well)
+- [ ] Difficulty (opponent AI and keeper level)
 
 ### M2 Career depth
 - [ ] Contracts, wages, release clauses; agent; summer and January windows; loans
@@ -62,8 +66,7 @@ Update this file after every item.
 ### M4 Presentation / M5 Positions / M6 Extras
 See PLAN.md section 9.
 
-## Balance (test bot, tools/harness.js)
+## Balance (node tools/harness.js, 48 matches of 3-minute halves)
 
-Keeper only, shots to a corner (gk.js run, 120 shots each): penalties 63–72% in; 14 m 78–83%; 18 m 18–53%;
-22 m 3–5%; 28 m about 0–3% (most saved). Full moments, 80 each, bot play: penalty ~69%, free kick ~5%, edge of the box
-~3–8%, counter ~43–65% (too easy: the next tuning target), wing ~0–10% (the bot never crosses). Human play is the next calibration.
+Per match: 2.2 goals, 14 shots (8.8 on target), about 155 passes at 75%, 0.8 corners, 2.6 fouls, 0.4 penalties,
+6.6 saves. Possession lands near 50/50 between even sides; stronger clubs win more but not always.

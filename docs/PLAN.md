@@ -14,10 +14,10 @@ Research behind every decision here: [RESEARCH.md](RESEARCH.md). Working status 
 
 1. **Portrait, one thumb.** Every action works with the thumb of the hand holding the phone. The pitch runs up the
    screen (you always attack upward), which is the shape of a phone held upright. No virtual buttons on the pitch.
-2. **Your moments, not ninety minutes.** A real match takes ninety minutes; a pocket match takes about four. The
-   simulation plays the match; when the ball finds you, it stops and you play that moment live, then it carries on.
-   This is New Star Soccer's proven idea, done in real time with a full set of players around you instead of a
-   static puzzle.
+2. **A real match, pocket-sized.** (Changed 2026-11-21 at the owner's request: "base it off FIFA".) Eleven against
+   eleven in real time, two halves of three minutes by default, in 3D with the pocket players shared with
+   PocketBasketball. In the career you are one player (FIFA's Player Career); in Kick-off you run the whole team.
+   The first prototype's "moments" (only your chances played) is in the history at commit 36f6243.
 3. **My Career is the main mode.** Everything serves the story of one player: minutes earned from the manager, the
    Golden Boot race, a move to a bigger club, the national team, a Ballon d'Or-style award, retirement.
 4. **Honest numbers.** Every match rating shows its working. Trust only moves on what you did. The age curve is the

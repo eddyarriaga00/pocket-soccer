@@ -45,7 +45,7 @@
       CM: { pac: 54, sho: 50, pas: 60, dri: 56, def: 48, phy: 52 } }[o.pos];
     const a = {}; for (const k in base) a[k] = clamp(Math.round(base[k] + rnd(-3, 3)), 25, 80);
     C = {
-      v: 1, name: o.name.trim() || 'A. Player', nation: o.nation, pos: o.pos, foot: o.foot, num: o.pos === 'ST' ? 9 : o.pos === 'W' ? 11 : 8,
+      v: 1, name: o.name.trim() || 'A. Player', nation: o.nation, pos: o.pos, foot: o.foot, skin: o.skin ?? 3, look: o.look || null, num: o.pos === 'ST' ? 9 : o.pos === 'W' ? 11 : 8,
       age: 17, season: 1, year: 2027, club: o.club, a, pot: Math.round(rnd(84, 94)), xp: 150, trust: 34,
       seed: Math.floor(Math.random() * 1e9), totals: { apps: 0, goals: 0, assists: 0 }, history: [], news: [], trophies: [], offers: null, last: null
     };
@@ -83,7 +83,7 @@
 
   /* after the final whistle: the user's match into the table and his record, the round's other matches simulated */
   function finishMatch(m) {
-    const L = C.league, rt = PS.sim.rating(m), s = m.stats;
+    const L = C.league, rt = m.rating || PS.sim.rating(m), s = m.stats;
     const [hi, ai] = m.home ? [C.club, m.oppIdx] : [m.oppIdx, C.club];
     const [hg, ag] = m.home ? m.score : [m.score[1], m.score[0]];
     recordResult(hi, ai, hg, ag);
@@ -103,7 +103,7 @@
       C.ss.goals += s.goals; C.ss.assists += s.assists; C.ss.ratings.push(rt.r); C.ss.mins += mins;
       C.totals.apps++; C.totals.goals += s.goals; C.totals.assists += s.assists;
       /* XP: the rating, what you did, and a little for every minute on the pitch */
-      xp = Math.round(Math.max(0, rt.r - 5) * 35 + s.goals * 30 + s.assists * 20 + s.played * 5 + mins * 0.4 + (rt.res === 'W' ? 15 : 0));
+      xp = Math.round(Math.max(0, rt.r - 5) * 45 + s.goals * 40 + s.assists * 25 + (s.tackles || 0) * 5 + mins * 0.5 + (rt.res === 'W' ? 20 : 0));
       /* trust: judged against what a player with those minutes could be expected to do */
       /* what the manager expects depends on the role he gave you */
       const expect = { bench: 5.9, rotation: 6.25, starter: 6.55 }[role()];

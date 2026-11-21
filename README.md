@@ -2,43 +2,52 @@
 
 <img src="icons/icon-512.png" width="112" align="right" alt="">
 
-**A soccer career for your phone, played in portrait with one thumb, right in the browser.** Create a striker, winger
-or midfielder at 17, earn your minutes from the manager, chase the Golden Boot, get the big move, and play every
-chance that falls to you.
+**Eleven-a-side soccer for your phone, played upright, right in the browser.** Full 3D matches with FIFA-style
+controls, the same pocket players as [PocketBasketball](https://github.com/eddyarriaga00/pocket-basketball), and
+**My Career**: one player from a 17-year-old debut to retirement.
 
 **Play:** https://eddyarriaga00.github.io/pocket-soccer/ (add it to your home screen for full screen)
 
-Sister game to [PocketFootball](https://github.com/eddyarriaga00/pocket-football). Plain JavaScript, no install, no
-build step. Every club and player is fictional.
+Sister game to [PocketFootball](https://github.com/eddyarriaga00/pocket-football) and PocketBasketball. Plain
+JavaScript and three.js, no install, no build step. Every club and player is fictional.
 
-## How it plays
+## Modes
 
-A match is simulated, with live commentary. When the ball finds you, the game stops on **your moment** and you play it:
-a few seconds of real football around you, with teammates making runs, defenders pressing and covering, and a keeper
-who dives, until it ends in a goal, a save, a miss, a lost ball, a foul or offside. Then the match carries on.
+- **My Career** (the main mode): create a striker, winger or midfielder (name, nation, foot, skin tone, hair), sign for
+  a small club and play every match as your player, FIFA Player Career style: you control only yourself, your
+  teammates play around you and pass to you when you call for it. A rating out of 10 after every match with its
+  reasons, XP to spend on six attributes, manager trust that decides whether you start, come off the bench or sit,
+  a 12-club league over 22 matchdays, the Golden Boot race, awards, transfer offers from bigger clubs, an age curve
+  and retirement. Any match can be simulated instead.
+- **Kick-off**: any two clubs, a full match, you run the whole team (it switches to the man that matters; Switch to
+  change).
 
-| Gesture | With the ball | Without it |
-|---|---|---|
-| Drag and hold | Dribble (sprint at the edge of the stick) | Run (a run forward calls for the ball) |
-| Flick | Shoot at goal, pass to a teammate, or play it into space. Faster = harder | Sliding tackle |
-| Bend the flick | Curl it (it still finishes where you aimed) | |
-| Tap a teammate | Pass to his feet | |
-| Tap inside the goal | Placed side-foot finish | |
-| Tap elsewhere | Knock it ahead and burst | Call for it, or tackle |
+## On the pitch
 
-Seven kinds of moment: the edge of the box, a run in behind (stay onside), a counter attack, down the wing, running
-the midfield, free kicks with a jumping wall, and penalties. Fouls in the box chain into a penalty.
+- 11 v 11 in real time: formations (4-3-3, 4-4-2, 4-2-3-1), a defensive shape that shifts with the ball, pressing
+  with cover, marking that reads runs a beat late, passing chosen by lane safety and space, runs in behind, crosses,
+  headers, keepers who narrow the angle, dive and parry (some round the post), throw-ins, corners, goal kicks, fouls,
+  free kicks with a wall, penalties, offside, cards, half time and full time.
+- Ball physics with the drag crisis, Magnus curl and spin decay.
+- A broadcast camera behind your attack (portrait: you always play up the screen); it drops back when you defend.
+- Sound made on the spot: crowd, kicks, whistle, net, post.
 
-## My Career
+## Controls
 
-Your rating out of 10 after every match, with the reasons listed. XP to spend on Pace, Shooting, Passing, Dribbling,
-Defending and Physical. Manager trust decides whether you're on the bench, in rotation or starting. A 12-club league
-over 22 matchdays, a Golden Boot race, Player of the Season, transfer offers when you outgrow your club, an age curve
-that peaks in your mid-twenties, and retirement. **Quick Moments** is an endless practice mode.
+Left thumb: a floating stick (let go and your player keeps moving on his own). Right thumb: four buttons that change
+with the play.
+
+| | Big button | Pass | Through | Small |
+|---|---|---|---|---|
+| Your ball | Shoot (hold for power, aim with the stick) | Pass (hold = lob / cross) | Through ball (hold = chipped) | Sprint |
+| A teammate's (career) | | Call for it | Run in behind | Sprint |
+| Theirs | Tackle | Switch (Kick-off) / Press (career, hold) | Slide | Sprint |
+
+Keyboard: arrows or WASD, Space, J, K, Shift, E.
 
 ## Docs
 
-- [docs/PLAN.md](docs/PLAN.md): the design (pillars, controls, moments, career systems, milestones)
+- [docs/PLAN.md](docs/PLAN.md): the design and the milestones
 - [docs/RESEARCH.md](docs/RESEARCH.md): the research behind it, with sources
 - [docs/ROADMAP.md](docs/ROADMAP.md): status, how to test, rollback points
 
@@ -48,19 +57,24 @@ that peaks in your mid-twenties, and retirement. **Quick Moments** is an endless
 python3 tools/serve.py 48241
 ```
 
-then open http://localhost:48241 (or just open `index.html`). `tools/harness.js` plays hundreds of moments and whole
-seasons for balance testing (see the roadmap).
+then open http://localhost:48241. `node tools/harness.js 20` plays twenty computer-v-computer matches with the real
+engine and prints the averages.
 
 ## Layout
 
 ```
-index.html          the page
+index.html          loads three.js, then the game's scripts in order
 css/game.css        the look
 js/data.js          clubs, names, nations, positions, commentary
-js/physics.js       the pitch and the ball (drag, curl, bounce, goal frame)
-js/moment.js        a live moment: players, AI, controls, camera, drawing
-js/sim.js           the simulated match, moments, ratings
-js/career.js        the career model and save
+js/physics.js       the pitch and the ball
+js/model.js         the players' bodies: the pocket player model, the soccer kit shader, animation
+js/match.js         a full match: rules, AI, your controls, stats
+js/render3d.js      the stadium, the players and the camera in 3D
+js/controls.js      the stick and the buttons
+js/audio.js         crowd, kicks, whistle
+js/sim.js           match plans for the career, quick results for other games
+js/career.js        My Career: the save, the league, ratings, growth, transfers
 js/ui.js            the screens
-tools/              local server and test harness
+models/             the player model and its clips (see models/README.md)
+tools/              local server, test harness
 ```
