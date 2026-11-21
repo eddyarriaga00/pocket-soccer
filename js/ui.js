@@ -130,7 +130,8 @@
     if (!M) return;
     const G = M.G, dt = Math.min(0.05, (now - M.last) / 1000); M.last = now;
     const ovOpen = !$('#ov').hidden;
-    if (!M.paused && !ovOpen && G.phase !== 'half' && !G.over) { M.acc += dt; let n = 0; while (M.acc >= 1 / 60 && n++ < 5) { PS.Match.step(G, 1 / 60); M.acc -= 1 / 60; } if (n >= 5) M.acc = 0; }
+    if (M.hit > 0) M.hit -= dt;   /* hit-stop: a hard strike holds the frame for an instant */
+    else if (!M.paused && !ovOpen && G.phase !== 'half' && !G.over) { M.acc += dt; let n = 0; while (M.acc >= 1 / 60 && n++ < 5) { PS.Match.step(G, 1 / 60); M.acc -= 1 / 60; } if (n >= 5) M.acc = 0; }
     const evs = G.events.splice(0);
     if (S.sound) PS.Audio.events(G, evs);
     for (const e of evs) hudEvent(G, e);
@@ -154,10 +155,13 @@
     if (e.k === 'goal') {
       const mine = e.t === 0, by = e.by, b = $('#banner');
       b.className = 'show ' + (mine ? 'us' : 'them');
-      b.innerHTML = `<b>GOAL!</b><span>${esc(by ? by.name : '')}${e.assist ? ` · assist ${esc(e.assist.name)}` : ''}</span>`;
+      b.innerHTML = `<b>GOAL!</b><span>${esc(by ? by.name : '')}${e.assist ? ` · assist ${esc(e.assist.name)}` : ''}</span>${e.how ? `<em>${esc(e.how)}</em>` : ''}`;
+      if (PS.R3.goal && e.endY != null) PS.R3.goal(e.endY, e.x, e.z);
+      PS.R3.shake = Math.max(PS.R3.shake || 0, 0.25);
       setTimeout(() => { b.className = ''; }, 2800);
       if (navigator.vibrate && mine) try { navigator.vibrate([40, 60, 80]); } catch (x) { /* no vibration */ }
     }
+    if (e.k === 'strike' && M) { if (e.v > 27 || e.timing === 'perfect') { M.hit = e.ctl ? 0.07 : 0.035; PS.R3.shake = Math.max(PS.R3.shake || 0, Math.min(0.3, (e.v - 18) * 0.02)); } }
     if (e.k === 'say' && e.kind && !/goal|ko/.test(e.kind)) toast(e.t, e.kind);
   }
   function toast(t, kind) {
@@ -367,7 +371,10 @@
       <div class="lbl">Moving</div>
       <ul class="howl"><li><b>Left thumb</b>: put it down anywhere on the left half and drag. That’s your stick.</li><li><b>Sprint</b>: hold it while you run.</li></ul>
       <div class="lbl">With the ball</div>
-      <ul class="howl"><li><b>Shoot</b>: hold to build power (watch the bar), release to strike. Aim with the stick, or leave it and you go for the far post.</li>
+      <ul class="howl"><li><b>Shoot</b>: hold to build power, release to strike. Aim across the goal with the stick (a ring shows where it\u2019s going and how wide it may stray); leave the stick and you go for the far post.</li>
+        <li><b>Timing</b>: the bar has a green band. Let go inside it for a <b>perfect</b> strike, far more accurate. The band sits low for close range and higher from distance. Overhit it and the ball climbs.</li>
+        <li><b>Shot types</b>: while holding Shoot, swipe <b>up</b> for a chip (over a keeper who has come out), <b>down</b> for a finesse (curled into the far corner: the best finish from the edge of the box), <b>sideways</b> for a fake shot. Let go early for a low drive; hold to the end for a power shot. A ball in the air is a volley.</li>
+        <li>Shooting across your body, on your weaker foot, at a sprint or with a defender on you all make a shot less accurate. Take a touch and set yourself.</li>
         <li><b>Pass</b>: tap for a pass along the ground toward where the stick points. Hold it for a lofted ball, a cross from out wide.</li>
         <li><b>Through</b>: a ball into space for a runner. Hold it to chip it over.</li></ul>
       <div class="lbl">Without the ball</div>

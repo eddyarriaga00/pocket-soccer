@@ -1,6 +1,7 @@
 /* PocketSoccer: thumbs on the glass. A floating stick on the left half; four buttons on the right whose jobs follow the
    play, FIFA-style:
-     your ball:        Shoot (hold to power, release to strike)  Pass (tap; hold = lob or cross)  Through  Sprint
+     your ball:        Shoot (hold to power, release to strike; swipe up a chip, down a finesse, sideways a fake;
+                       let go early for a low drive, hold to the end for a power shot)  Pass (tap; hold = lob or cross)  Through  Sprint
      a teammate's (in a career): —  Call (for the pass)  Run (in behind, for a through ball)  Sprint
      theirs:           Tackle  Switch (or Press, in a career: hold to close him down)  Slide  Sprint
    Keys too: arrows or WASD to move, Space = the big button, J / K = the two others, Shift = sprint, E = switch. */
@@ -8,16 +9,18 @@
   'use strict';
   const PS = window.PS = window.PS || {};
   const C = PS.Controls = {};
-  let G = null, root, stick, base, knob, btn = {}, power, pwFill, held = {}, labels = '', keys = {};
+  let G = null, root, stick, base, knob, btn = {}, power, pwFill, pwZone, pwType, shint, call, held = {}, labels = '', keys = {};
 
   C.mount = el => {
     root = el;
     el.insertAdjacentHTML('beforeend', `<div id="stick"><div class="sbase"><div class="knob"></div></div></div>
       <div id="btns"><button class="cb A" data-s="A"><b></b></button><button class="cb B" data-s="B"><b></b></button><button class="cb C" data-s="C"><b></b></button><button class="cb D" data-s="D"><b>Sprint</b></button></div>
-      <div id="power" hidden><i></i></div>`);
+      <div id="power" hidden><u class="zone"></u><i></i><b class="ptype"></b></div>
+      <div id="shint" hidden><span class="su">\u2191 Chip</span><span class="sd">\u2193 Finesse</span><span class="sl">\u2194 Fake</span></div>
+      <div id="shotcall"></div>`);
     stick = el.querySelector('#stick'); base = stick.querySelector('.sbase'); knob = stick.querySelector('.knob');
     for (const b of el.querySelectorAll('.cb')) btn[b.dataset.s] = b;
-    power = el.querySelector('#power'); pwFill = power.querySelector('i');
+    power = el.querySelector('#power'); pwFill = power.querySelector('i'); pwZone = power.querySelector('.zone'); pwType = power.querySelector('.ptype'); shint = el.querySelector('#shint'); call = el.querySelector('#shotcall');
     /* the stick: wherever the thumb lands in the left half; it follows a thumb that runs past its edge */
     let sid = null, sx = 0, sy = 0;
     const R = 52;
@@ -29,13 +32,19 @@
     stick.addEventListener('pointermove', move); stick.addEventListener('pointerup', end); stick.addEventListener('pointercancel', end);
     for (const s of ['A', 'B', 'C', 'D']) {
       const b = btn[s];
-      b.addEventListener("pointerdown", e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) { /* a synthetic pointer */ } press(s); });
+      b.addEventListener("pointerdown", e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) { /* a synthetic pointer */ } press(s, e.clientX, e.clientY); });
+      /* a swipe while Shoot is held picks the shot: up a chip, down a finesse, sideways a fake */
+      b.addEventListener('pointermove', e => { const h = held[s]; if (!h || h.k !== 'shoot' || h.x0 == null) return; const dx = e.clientX - h.x0, dy = e.clientY - h.y0;
+        const t = dy < -26 && -dy > Math.abs(dx) ? 'chip' : dy > 26 && dy > Math.abs(dx) ? 'finesse' : Math.abs(dx) > 34 ? 'fake' : Math.hypot(dx, dy) < 18 ? 'drive' : h.type;
+        if (t !== h.type) { h.type = t; if (G && G.input.charge) G.input.charge.type = t; if (navigator.vibrate) try { navigator.vibrate(8); } catch (x) { /* none */ } } });
       b.addEventListener('pointerup', e => { e.preventDefault(); release(s); });
       b.addEventListener('pointercancel', () => release(s));
       b.addEventListener('contextmenu', e => e.preventDefault());
     }
-    addEventListener('keydown', e => { if (!G || e.repeat) return; const k = e.code; keys[k] = true; const s = { Space: 'A', KeyJ: 'B', KeyK: 'C', ShiftLeft: 'D', ShiftRight: 'D' }[k]; if (s) { press(s); e.preventDefault(); } if (k === 'KeyE' && G) G.input.q.push({ k: 'switch', up: false }); keyStick(); });
-    addEventListener('keyup', e => { if (!G) return; keys[e.code] = false; const s = { Space: 'A', KeyJ: 'B', KeyK: 'C', ShiftLeft: 'D', ShiftRight: 'D' }[e.code]; if (s) release(s); keyStick(); });
+    /* keys: Space shoots (U a chip, I a finesse, hold them like Space), J pass, K through, Shift sprint, E switch */
+    const KEYS = { Space: 'A', KeyU: 'A', KeyI: 'A', KeyJ: 'B', KeyK: 'C', ShiftLeft: 'D', ShiftRight: 'D' };
+    addEventListener('keydown', e => { if (!G || e.repeat) return; const k = e.code; keys[k] = true; const s = KEYS[k]; if (s) { press(s); if (k === 'KeyU' || k === 'KeyI') { const h = held.A; if (h && h.k === 'shoot') { h.type = k === 'KeyU' ? 'chip' : 'finesse'; G.input.charge && (G.input.charge.type = h.type); } } e.preventDefault(); } if (k === 'KeyE' && G) G.input.q.push({ k: 'switch', up: false }); keyStick(); });
+    addEventListener('keyup', e => { if (!G) return; keys[e.code] = false; const s = KEYS[e.code]; if (s) release(s); keyStick(); });
   };
   function keyStick() {
     const x = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0), y = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0), l = Math.hypot(x, y) || 1;
@@ -52,16 +61,16 @@
     return { A: 'Tackle', B: G.mode === 'team' ? 'Switch' : 'Press', C: 'Slide' };
   }
   const KIND = { Shoot: 'shoot', Pass: 'pass', Throw: 'pass', 'Throw long': 'through', Cross: 'pass', Through: 'through', Call: 'call', Run: 'run', Tackle: 'tackle', Switch: 'switch', Slide: 'slide', Press: 'press' };
-  function press(s) {
+  function press(s, x, y) {
     if (!G) return;
     if (s === 'D') { G.input.sprint = true; btn.D.classList.add('dn'); return; }
     const job = btn[s].dataset.job || ''; if (!job) return;
     const k = KIND[job];
-    held[s] = { k, t0: performance.now() };
+    held[s] = { k, t0: performance.now(), x0: x, y0: y, type: 'drive' };
     btn[s].classList.add('dn');
     if (k === 'press') { G.input.press = true; return; }
     if (k === 'tackle' || k === 'switch' || k === 'slide' || k === 'call' || k === 'run') G.input.q.push({ k, up: false });
-    if (k === 'shoot') { power.hidden = false; }
+    if (k === 'shoot') { power.hidden = false; shint.hidden = false; G.input.charge = { t0: held[s].t0, type: 'drive' }; }
     PS.Audio && PS.Audio.tap && PS.Audio.tap();
   }
   function release(s) {
@@ -71,8 +80,16 @@
     const h = held[s]; held[s] = null; if (!h) return;
     const dur = (performance.now() - h.t0) / 1000;
     if (h.k === 'press') { G.input.press = false; return; }
-    if (h.k === 'shoot' || h.k === 'pass' || h.k === 'through') G.input.q.push({ k: h.k, up: true, dur, long: (h.k === 'pass' || h.k === 'through') && (dur > 0.3 || btn[s].dataset.job === 'Cross' || btn[s].dataset.job === 'Throw long') });
-    if (h.k === 'shoot') power.hidden = true;
+    if (h.k === 'shoot') {
+      /* the strike: how the release was timed against the sweet spot, called out over the button */
+      const pv = PS.Match.aimPreview(G);
+      G.input.q.push({ k: 'shoot', up: true, dur, type: h.type });
+      G.input.charge = null; power.hidden = true; shint.hidden = true;
+      if (pv && !pv.fake) shotCall(pv.timing === 'perfect' ? 'PERFECT' : pv.timing === 'good' ? 'GOOD' : pv.timing === 'early' ? 'EARLY' : 'OVERHIT', pv.timing);
+      else if (pv && pv.fake) shotCall('FAKE', 'good');
+      return;
+    }
+    if (h.k === 'pass' || h.k === 'through') G.input.q.push({ k: h.k, up: true, dur, long: dur > 0.3 || btn[s].dataset.job === 'Cross' || btn[s].dataset.job === 'Throw long' });
   }
   /* every frame: the labels, and the power bar while Shoot is held */
   C.tick = () => {
@@ -83,8 +100,16 @@
       for (const s of ['A', 'B', 'C']) { const b = btn[s]; b.dataset.job = j[s]; b.querySelector('b').textContent = j[s] || ''; b.classList.toggle('off', !j[s]); b.classList.toggle('def', j.A === 'Tackle'); }
     }
     const h = held.A;
-    if (h && h.k === 'shoot') { const k = Math.min(1, (performance.now() - h.t0) / 900); pwFill.style.width = k * 100 + '%'; pwFill.classList.toggle('hot', k > 0.92); }
+    if (h && h.k === 'shoot') {
+      const k = Math.min(1, (performance.now() - h.t0) / 900), pv = PS.Match.aimPreview(G);
+      pwFill.style.width = k * 100 + '%';
+      if (pv) { pwZone.style.left = (pv.ss.c - pv.ss.w) * 100 + '%'; pwZone.style.width = pv.ss.w * 200 + '%';
+        pwFill.className = pv.timing === 'perfect' ? 'ok' : pv.timing === 'over' ? 'hot' : '';
+        pwType.textContent = pv.fake ? 'FAKE' : { drive: 'SHOT', low: 'LOW DRIVEN', finesse: 'FINESSE', chip: 'CHIP', power: 'POWER', volley: 'VOLLEY' }[pv.type] || ''; }
+      else pwType.textContent = h.type === 'fake' ? 'FAKE' : '';
+    }
   };
+  function shotCall(t, kind) { call.textContent = t; call.className = 'show ' + kind; clearTimeout(shotCall.tm); shotCall.tm = setTimeout(() => { call.className = ''; }, 900); }
   C.attach = g => { G = g; labels = ''; held = {}; if (g) { g.input.mx = g.input.my = 0; g.input.sprint = false; } C.show(true); };
   C.show = on => { if (root) root.classList.toggle('noctl', !on); };
   C.detach = () => { G = null; };

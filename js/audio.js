@@ -63,6 +63,8 @@
       else if (e.k === 'whistle') A.whistle(!e.short);
       else if (e.k === 'half' || e.k === 'full') A.whistle('end');
       else if (e.k === 'goal') { A.net(); A.roar(); setTimeout(() => A.whistle(false), 900); }
+      else if (e.k === 'strike') { if (e.timing === 'perfect') tone(180, 0.18, 0.5, 'sine', 60); }
+      else if (e.k === 'miss') A.gasp();
       else if (e.k === 'post') { A.post(); A.gasp(); }
       else if (e.k === 'save') A.gasp();
       else if (e.k === 'head') A.kick(8);

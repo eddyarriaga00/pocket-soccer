@@ -85,3 +85,56 @@ Sources: [Goal: why Man Utd is "Man UFC" in FM22](https://www.goal.com/en/news/w
 Kept: plain JS classic scripts with one namespace, a no-cache local server, a synchronous test harness, a
 network-first service worker, a 62vh-wide portrait column on big screens, Archivo display type, navy neutrals and
 one accent, the roadmap with rollback points, and pushing to `main` (GitHub Pages redeploys on every push).
+
+## Shooting (2026-11-21, for the shooting rebuild)
+
+**Shot types (EA FC).** Finesse trades power for accuracy and curls toward the corners, best from mid-range; the
+power shot is the fastest but has a long wind-up; the chip lifts the ball over a keeper off his line; the low driven
+shot is released early (before about 40% of the bar) and kept down, useful through traffic. Timed finishing (a second
+press at contact, scored green when right) makes any type more accurate; mistimed is scuffed or wild, and overcharging
+costs accuracy. Power should rise with distance.
+→ *Six types, chosen on one thumb (below); a sweet spot on the power bar that moves with the distance; a perfect
+release has about a third of the error; overhitting adds lift and sends shots over.*
+Sources: [Operation Sports: FC 25 shooting accuracy](https://www.operationsports.com/ea-fc-25-how-to-improve-shooting-accuracy-explained),
+[VideoGamer: power shot](https://www.videogamer.com/guides/fc-25-how-to-power-shot), [VideoGamer: finesse shot](https://www.videogamer.com/guides/fc-25-how-to-finesse-shot),
+[FUT.GG: low driven shot](https://www.fut.gg/news/how-to-do-a-low-driven-shot-master-the-new-playstyle-in-fc-25/),
+[EA forums: timed finishing in FC 25](https://forums.ea.com/blog/ea-sports-fc-game-info-hub-en/how-to-use-timed-finishing-in-ea-sports-fc%E2%84%A2-25/12294008),
+[EA: FC 24 PlayStyles](https://www.ea.com/games/ea-sports-fc/pitch-notes/news/fc-24-playstyles-deepdive),
+[Outsider Gaming: power and overcharging](https://outsidergaming.com/fifa-complete-shooting-guide-controls-tips-and-tricks/).
+
+**One-thumb shooting (EA FC Mobile / FIFA Mobile).** Hold Shoot for power; swipe on the button to pick the shot:
+down a finesse, up a chip, sideways a fake. Success comes from the aim, the shot context (position, pressure, shooting
+off a dribble or a volley) and the shooting attributes; a power-up near 50% is the most reliable for a power shot.
+→ *The same gestures on PocketSoccer's Shoot button; the context factors feed the error cone.*
+Sources: [EA: FIFA Mobile gesture controls](https://www.ea.com/news/gameplay-controls-guide-gesture-controls),
+[EA: FC Mobile gameplay deep dive](https://www.ea.com/en/games/ea-sports-fc/fc-mobile/news/fc-mobile-gameplay-deep-dive),
+[FIFPlay: FC Mobile controls](https://fifplay.com/fc-mobile-controls).
+
+**The keeper's clock.** A struck ball can reach the goal in about half a second, while a dive to a corner takes 0.6 s
+or more (up to a second for the top corner); dives to the bottom corners are faster than to the top. Saves depend
+mainly on the keeper's reaction time and on ball speed.
+→ *Reaction scaled by distance (set and reading the body up close, slower to a strike from range, later through a
+crowd); reach shrinks toward the top corner; keepers read curl only in part.*
+Sources: [Frontiers: penalty kick timing](https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2020.00013/epub),
+[Springer: goalkeeper dive study](https://link.springer.com/article/10.1007%2Fs12662-018-0506-3),
+[Taking the goalkeeper's side in penalty kicks](https://www.researchgate.net/profile/Sebastian-Tambusso/publication/259968890_Taking_the_goalkeeper%27s_side_in_association_football_penalty_kicks/links/544903cd0cf2f14fb8145b32/Taking-the-goalkeepers-side-in-association-football-penalty-kicks.pdf).
+
+**Placement.** On-target shots into the corners are worth far more than shots down the middle (expected goals on
+target); a ball just inside the top corner is close to unsaveable.
+→ *Aim into the corners with the stick (a ring shows the spread); the call after a goal names where it went in.*
+Sources: [The Analyst: xGOT](https://theanalyst.com/articles/what-are-expected-goals-on-target-xgot/),
+[Stats Perform: xGOT](https://www.statsperform.com/resource/enhancing-expected-goals-on-target/),
+[Datawrapper: where goals go in](https://www.datawrapper.de/blog/football-goals-analysis).
+
+**Accuracy factors.** The dominant foot is more accurate than the weaker one; balance, clean contact and judging
+power matter; volleys hit hard tend to fly.
+→ *Weaker foot, shooting across the body, a defender close, a sprint and a ball in the air widen the cone.*
+Sources: [Frontiers: dominant vs non-dominant foot shooting](https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2024.1348983/pdf),
+[Sportmonks: shot accuracy](https://www.sportmonks.com/glossary/shot-accuracy), [Blayze: volleys](https://blayze.io/blog/soccer/expert-tips-for-improving-%20your-soccer-volleys-and-half-volleys).
+
+**Feel.** Hit-stop, coherent sound and camera control shape how hard an impact feels; a motion trail changed players'
+perception more than physics tweaks did.
+→ *A short hit-stop and camera shake on hard strikes, a ball trail, slow motion as a shot on target reaches the goal,
+a net that balloons, a timing call (PERFECT / GOOD / EARLY / OVERHIT), a thump on a perfect strike.*
+Sources: [arXiv: impact feel in action games](https://arxiv.org/pdf/2011.09201), [Rutgers: game feel lecture](https://sakai.rutgers.edu/access/content/group/0a4e9ee5-ee55-4b15-b778-52a05786e504/lectures/04_gamefeel.pdf),
+[Wikipedia: game feel](https://Www.wikipedia.org/wiki/Game_feel).

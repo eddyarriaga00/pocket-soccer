@@ -219,3 +219,15 @@ p{margin:8px 0}
 .swatch button.on{border-color:var(--acc);box-shadow:0 0 0 2px var(--bg) inset}
 .btn2.sm{display:block;width:100%;margin-top:8px}
 #ov{z-index:10} #hud{z-index:4} #stick,#btns,#power{z-index:5}
+/* shooting: the power bar's sweet spot, the shot type, the swipe hints, the timing call */
+#power{height:14px;width:170px;overflow:visible}
+#power .zone{position:absolute;top:-3px;bottom:-3px;background:rgba(62,224,143,.35);border:1px solid var(--acc);border-radius:4px;text-decoration:none}
+#power i{position:relative;border-radius:6px 0 0 6px;transition:background .1s}
+#power i.ok{background:var(--acc)} #power i.hot{background:var(--red)}
+#power .ptype{position:absolute;left:0;right:0;top:-20px;text-align:center;font-family:var(--display);font-weight:900;font-size:12px;letter-spacing:.12em;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+#shint{position:absolute;right:16px;width:170px;bottom:calc(172px + var(--sb));z-index:6;pointer-events:none;display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:rgba(255,255,255,.8);text-shadow:0 1px 3px #000}
+#shotcall{position:absolute;right:18px;bottom:calc(224px + var(--sb));z-index:6;pointer-events:none;font-family:var(--display);font-weight:900;font-size:20px;letter-spacing:.06em;opacity:0;transform:translateY(8px);transition:.18s}
+#shotcall.show{opacity:1;transform:none}
+#shotcall.perfect{color:var(--acc);text-shadow:0 0 12px rgba(62,224,143,.8)} #shotcall.good{color:#fff} #shotcall.early{color:#9aa6bd} #shotcall.over{color:var(--red)}
+#banner em{display:block;margin-top:6px;font-style:normal;font-weight:700;font-size:13px;color:#e2e8f0;text-shadow:0 1px 4px #000}
+.toast.miss{color:#fca5a5}

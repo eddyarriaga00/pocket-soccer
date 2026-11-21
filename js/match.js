@@ -59,7 +59,7 @@
       const want = { ST: ['ST'], W: ['LW', 'RW', 'LM', 'RM'], CM: ['CM', 'AM', 'DM'] }[o.me.pos] || ['ST'];
       const mine = G.ps.filter(p => p.t === 0);
       const slot = mine.find(p => want.includes(p.role)) || mine[9];
-      const mine2 = { name: o.me.name, num: o.me.num, a: Object.assign({ gk: 20 }, o.me.a), skin: o.me.skin ?? slot.skin, look: o.me.look, me: true };
+      const mine2 = { name: o.me.name, num: o.me.num, a: Object.assign({ gk: 20 }, o.me.a), skin: o.me.skin ?? slot.skin, look: o.me.look, foot: o.me.foot || 'Right', me: true };
       if (o.on > 0) {
         /* on the bench: he waits off the pitch, and comes on for the man in his slot */
         const me = Object.assign({}, slot, mine2, { st: { g: 0, as: 0, sh: 0, ot: 0, ps: 0, pc: 0, kp: 0, tk: 0, dr: 0, it: 0, lost: 0, sv: 0 }, bench: true, x: -6, y: L / 2 });
@@ -216,7 +216,6 @@
       G.stats[p.t].shots++; p.st.sh++;
       const x = xg(G, p); G.stats[p.t].xg += x;
       if (G.lastPassTo === p && G.lastPassFrom && G.lastPassFrom.t === p.t) G.lastPassFrom.st.kp++;
-      if (!G.ff) { G.slow = 0.5; G.slowT = 0.7; }
     }
     if (kind === 'clear') G.pass = null;
   }
@@ -243,19 +242,127 @@
     for (let i = 0; i < 4 && Math.abs(e1) > 0.06; i++) { const a2 = a1 - e1 * (a1 - a0) / ((e1 - e0) || 1e-6); a0 = a1; e0 = e1; a1 = a2; e1 = cross(a1) - tx; }
     return isFinite(a1) ? a1 : Math.atan2(tx - from.x, ty - from.y);
   }
-  /* a shot at (tx) in the goal mouth: p power 0..1, curl the spin */
-  function shoot(G, p, tx, pw, curl) {
-    const gy = goalY(G, p.t), a = p.a;
-    p.face = Math.atan2(tx - p.x, gy - p.y);
+  /* ------------------------------------------------------------------ shooting
+     Shot types (the Shoot button: hold for power; swipe while holding to choose, see controls.js):
+       drive    the standard strike: power sets the pace and the height (low early, rising late)
+       low      low driven: let go early, kept down, quick to get off
+       finesse  inside of the foot, curled in toward the far corner: placement over pace
+       chip     lifted over a keeper who has come off his line
+       power    everything into it: the longest wind-up, the most pace, the most risk
+       volley   struck first time out of the air
+     Timing: the power bar has a sweet spot that moves with the distance (low near goal, higher from range). Let go
+     inside it and the strike is clean ('perfect', about a third of the error); just outside, 'good'; well short,
+     'early' (it stays down and soft); well past, 'over' (it climbs, and can fly over the bar).
+     Error: a cone round the aim, wider for a poor finisher, widened by pace, a defender close, shooting across the
+     body, the weaker foot, a ball in the air and a sprint. The keeper is the last word (saves(), keeper()). */
+  const SHOT = { drive: { T: 0.3, v: [14, 18], err: 1 }, low: { T: 0.22, v: [18, 10], err: 0.85 }, finesse: { T: 0.32, v: [17, 10], err: 0.7 },
+    chip: { T: 0.3, v: [0, 0], err: 0.85 }, power: { T: 0.44, v: [21, 12], err: 1.35 }, volley: { T: 0.18, v: [15, 15], err: 1.45 } };
+  const angD = (a, c) => { let d = a - c; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; };
+  function sweet(G, p) {
+    const gy = goalY(G, p.t), d = hyp(CX - G.ball.x, gy - G.ball.y);
+    return { c: clamp(0.3 + d * 0.014, 0.36, 0.78), w: 0.05 + p.a.sho * 0.0006, d };
+  }
+  function timingOf(pw, ss) { const e = Math.abs(pw - ss.c); return e <= ss.w ? 'perfect' : e <= ss.w * 2.3 ? 'good' : pw < ss.c ? 'early' : 'over'; }
+  /* is this strike on his weaker foot? Shooting hard toward his stronger side means opening up on the other foot */
+  function weakFoot(p, shotA) {
+    const strong = p.foot || (p.num % 5 === 0 ? 'Left' : 'Right'), rel = angD(shotA, p.face);
+    return strong === 'Right' ? rel < -0.45 : rel > 0.45;
+  }
+  /* everything about a shot before it is struck: where it is aimed, its pace, curl, and how wide the error cone is.
+     o: { type, pw (0..1), across (-1..1 across the goal, null = the far post), timing } */
+  function shotPlan(G, p, o) {
+    const b = G.ball, a = p.a, gy = goalY(G, p.t), dist = hyp(CX - b.x, gy - b.y), pw = clamp(o.pw, 0.05, 1);
+    let type = o.type || 'drive';
+    if (type === 'drive' && b.z > 0.5) type = 'volley';
+    if (type === 'drive' && pw < 0.32) type = 'low';
+    if (type === 'drive' && pw > 0.9) type = 'power';
+    const S = SHOT[type], farS = b.x > CX ? -1 : 1;
+    /* finesse can be aimed tighter to the post: the curl brings it back in */
+    const tx = o.across != null ? CX + clamp(o.across, -1, 1) * (POST - (type === 'finesse' ? 0.22 : 0.35)) : CX + farS * (POST - (type === 'finesse' ? 0.3 : 0.7));
+    let tz = type === 'low' ? 0.2 : type === 'chip' ? 1.75 : type === 'finesse' ? 0.8 + 0.9 * pw : type === 'power' ? 0.5 + 1.2 * pw * pw : type === 'volley' ? 0.4 + 1.3 * pw : 0.25 + 1.95 * pw * pw;
+    tz = clamp(tz, 0.15, 2.2);
+    const v = S.v[0] + S.v[1] * pw + a.sho * 0.045 + (o.timing === 'perfect' ? 1.2 : 0);
+    const dirY = Math.sign(gy - b.y) || 1, sideS = Math.sign(tx - b.x) || farS;
+    const spin = type === 'finesse' ? -dirY * sideS * (16 + a.sho * 0.14) * clamp(18 / dist, 0.45, 1) : type === 'chip' ? 0 : -dirY * sideS * rnd(0, 5);
+    /* the cone */
+    const opps = teamOf(G, opp(p.t)), press = opps.reduce((m, q) => q.role === 'GK' ? m : Math.min(m, d2(q, p)), 99);
+    const pressK = press < 1.2 ? 1.55 : press < 2.2 ? 1.28 : 1;
+    const shotA = Math.atan2(tx - b.x, gy - b.y), body = Math.abs(angD(shotA, p.face));
+    const bodyK = 1 + Math.max(0, body - 0.6) * 0.55, weak = weakFoot(p, shotA), footK = weak ? 1.25 + (p.me ? 0 : 0) : 1;
+    const airK = b.z > 0.45 ? 1.35 : 1, runK = hyp(p.vx, p.vy) > 6.4 ? 1.15 : 1;
+    const tK = { perfect: 0.36, good: 0.75, early: 1, over: 1.2 }[o.timing || 'good'];
+    const base = 0.075 - a.sho * 0.0005;   // radians: shooting 50 about 3.4°, 75 about 2.1°, 90 about 1.7° before the factors
+    const sdH = base * S.err * (0.75 + 0.5 * pw) * pressK * bodyK * footK * airK * runK * tK * (p.ctl ? 1 : 1.12);
+    const sdV = (0.3 + 0.9 * pw) * S.err * pressK * airK * tK * (type === 'low' ? 0.45 : 1);
+    const over = o.timing === 'over' ? 1.1 + Math.max(0, pw - 0.8) * 5 : 0;
+    return { type, pw, tx, tz, gy, v, spin, top: type === 'low' ? 4 : type === 'power' ? 2 : type === 'chip' ? 3 : 0, sdH, sdV, over, dist, timing: o.timing || 'good', weak, press, foot: weak ? (p.foot === 'Left' ? 'R' : 'L') : (p.foot === 'Left' ? 'L' : 'R') };
+  }
+  /* the launch that puts the ball through (tx, tz) on the goal line: yaw by secant on x, then the lift (or, for a
+     chip, the pace) by secant on the height at the line */
+  function crossing(b, ang, v, vz, spin, top, gy) {
+    const s = Math.sign(gy - b.y) || 1;
+    const c = Object.assign(PS.phys.newBall(b.x, b.y), { z: Math.max(R, b.z), vx: Math.sin(ang) * v, vy: Math.cos(ang) * v, vz, spin, top });
+    const path = PS.phys.predict(c, q => (q.y - gy) * s >= 0 || (q.y - b.y) * s < -5, 1 / 90);
+    const e = path[path.length - 1], f = path[path.length - 2] || { x: b.x, y: b.y, z: b.z };
+    if (!e) return { x: b.x, z: 0 };
+    const k = (e.y - f.y) ? clamp((gy - f.y) / (e.y - f.y), 0, 1) : 1;
+    return { x: f.x + (e.x - f.x) * k, z: f.z + (e.z - f.z) * k, t: e.t };
+  }
+  function solveShot(b, P) {
+    const chip = P.type === 'chip';
+    let v = chip ? 7 + P.dist * 0.3 : P.v, vz = chip ? 6.2 + P.dist * 0.11 : 0.6 + P.tz * 0.9 + P.dist * 0.035, ang = Math.atan2(P.tx - b.x, P.gy - b.y);
+    for (let it = 0; it < 3; it++) {
+      let a0 = ang, a1 = ang + 0.03, e0 = crossing(b, a0, v, vz, P.spin, P.top, P.gy).x - P.tx, e1 = crossing(b, a1, v, vz, P.spin, P.top, P.gy).x - P.tx;
+      for (let k = 0; k < 3 && Math.abs(e1) > 0.05; k++) { const a2 = a1 - e1 * (a1 - a0) / ((e1 - e0) || 1e-6); a0 = a1; e0 = e1; a1 = a2; e1 = crossing(b, a1, v, vz, P.spin, P.top, P.gy).x - P.tx; }
+      if (isFinite(a1)) ang = a1;
+      if (chip) {
+        /* a lob: the pace that brings it down through tz on the way down, found by bisection near the drag-free
+           answer (faster is higher at the line on the falling half, so the search stays on that half) */
+        const T0 = (vz + Math.sqrt(Math.max(0, vz * vz - 2 * 9.81 * P.tz))) / 9.81, v0 = P.dist / T0 * 1.1;
+        let lo = v0 * 0.7, hi = v0 * 1.35;
+        for (let k = 0; k < 9; k++) { const m = (lo + hi) / 2, z = crossing(b, ang, m, vz, P.spin, P.top, P.gy).z; if (z > P.tz) hi = m; else lo = m; }
+        v = (lo + hi) / 2;
+        continue;
+      }
+      /* the height: the lift that brings it through tz */
+      const q = x => crossing(b, ang, v, x, P.spin, P.top, P.gy).z - P.tz;
+      let x0 = vz, x1 = x0 + 0.4, z0 = q(x0), z1 = q(x1);
+      for (let k = 0; k < 3 && Math.abs(z1) > 0.06; k++) { const x2 = x1 - z1 * (x1 - x0) / ((z1 - z0) || 1e-6); x0 = x1; z0 = z1; x1 = x2; z1 = q(x1); }
+      if (isFinite(x1)) vz = clamp(x1, -2, 12);
+    }
+    return { ang, v, vz };
+  }
+  /* strike it: o as for shotPlan */
+  function shoot(G, p, o) {
+    const P0 = shotPlan(G, p, o);
+    p.face = Math.atan2(P0.tx - p.x, P0.gy - p.y);
     kick(G, p, () => {
-      const b = G.ball, v = 13 + 18 * pw + a.sho * 0.05;
-      const press = teamOf(G, opp(p.t)).some(o => o.role !== 'GK' && d2(o, p) < 1.6) ? 1.5 : 1;
-      const sd = (0.05 - a.sho * 0.00036) * (1 + pw * 0.9) * press * (p.ctl ? 1 : 1.2) + (pw > 0.92 ? 0.02 : 0);
-      const dist = hyp(tx - b.x, gy - b.y);
-      let vz = 0.5 + 4.6 * pw * pw + dist * 0.03 + gauss() * 0.45 * pw + (pw > 0.95 ? 1.6 : 0);
-      const ang = solveAim(b, tx, gy, v, vz, curl, 5) + gauss() * sd;
-      kickNow(G, p, Math.sin(ang) * v, Math.cos(ang) * v, vz, curl, 'shot');
-    }, { power: pw, T: 0.34 });
+      const b = G.ball, P = shotPlan(G, p, o);   // again at contact: the ball and the pressure have moved
+      const sol = solveShot(b, P);
+      const ang = sol.ang + gauss() * P.sdH, v = (P.type === 'chip' ? sol.v : sol.v) * (1 + gauss() * 0.03);
+      const vz = sol.vz + gauss() * P.sdV * (P.type === 'chip' ? 1.5 : 1) + P.over;
+      const screen = G.ps.some(q => q !== p && q.role !== 'GK' && !q.bench && !q.off && segDist(q, b, { x: P.tx, y: P.gy }) < 0.8 && segT(q, b, { x: P.tx, y: P.gy }) > 0.35 && segT(q, b, { x: P.tx, y: P.gy }) < 0.93);
+      kickNow(G, p, Math.sin(ang) * v, Math.cos(ang) * v, vz, P.spin, 'shot');
+      if (G.shot) Object.assign(G.shot, { type: P.type, timing: P.timing, dist: P.dist, kmh: Math.round(hyp(Math.sin(ang) * v, Math.cos(ang) * v, vz) * 3.6), screen, chip: P.type === 'chip', from: { x: b.x, y: b.y } });
+      G.events.push({ k: 'strike', v: hyp(v, vz), timing: P.timing, type: P.type, ctl: !!p.ctl });
+    }, { power: P0.pw, T: SHOT[P0.type].T, foot: P0.foot, lob: P0.type === 'chip' });
+  }
+  /* the shot the user would get if he let go now: for the aim marker and the power bar */
+  function aimPreview(G) {
+    const p = G.ctl, i = G.input, c = i.charge; if (!p || !c) return null;
+    const b = G.ball; if (!(b.owner === p || (!b.owner && d2(b, p) < 2.6))) return null;
+    const pw = clamp((performance.now() - c.t0) / 900, 0.05, 1), ss = sweet(G, p);
+    const st = stickWorld(G), across = st.m > 0.3 ? acrossOf(G, p, st) : null;
+    const P = shotPlan(G, p, { type: c.type === 'fake' ? 'drive' : c.type, pw, across, timing: timingOf(pw, ss) });
+    return { gy: P.gy, tx: P.tx, tz: P.tz, r: clamp(P.dist * Math.tan(P.sdH * 1.6), 0.2, 3), ss, pw, type: P.type, timing: P.timing, fake: c.type === 'fake' };
+  }
+  /* the stick's part across the goal mouth, -1..1, as the camera sees it */
+  function acrossOf(G, p, st) { const gy = goalY(G, p.t), s = Math.sign(gy - p.y) || 1; return clamp((st.x / (st.m || 1)) * 1.25, -1, 1) * (s > 0 ? 1 : 1); }
+  /* a fake shot: the wind-up and no strike; defenders close by may buy it */
+  function fakeShot(G, p) {
+    p.act = { k: 'kick', t: 0, T: 0.3, foot: 'R', p: 0.5, fake: true };
+    for (const q of teamOf(G, opp(p.t))) if (q.role !== 'GK' && d2(q, p) < 3.2 && Math.random() < 0.65 - q.a.def * 0.004) { q.stun = 0.5; q.act = { k: 'slide', t: 0, T: 0.6 }; q.slideV = { x: Math.sin(q.face) * 2, y: Math.cos(q.face) * 2 }; q.slideHit = true; }
+    G.events.push({ k: 'fake' });
   }
   /* a pass to a teammate (led if he is running) or into space toward pt */
   function pass(G, p, to, pt, opts = {}) {
@@ -295,9 +402,7 @@
       const lane = opps.filter(o => o.role !== 'GK' && segDist(o, p, { x: CX, y: gy }) < 1.1 && segT(o, p, { x: CX, y: gy }) > 0.05).length;
       const want = r === 'pen' || (r === 'fk' && dG < 30 && ang < 0.9) || (dG < 24 && ang < 1.0 && (dG < 13 || lane === 0) && (xg(G, p) > 0.06 || (near < 2 && dG < 20)));
       if (want && Math.random() < (r ? 1 : 0.85)) {
-        const far = p.x > CX ? -1 : 1, tx = CX + (r === 'pen' ? (Math.random() < 0.5 ? -1 : 1) * rnd(1.6, 3.0) : far * rnd(1.5, POST - 0.5));
-        const curl = r === 'fk' ? -far * rnd(14, 30) * (Math.sign(gy - p.y) || 1) : rnd(-8, 8);
-        shoot(G, p, tx, r === 'pen' ? rnd(0.55, 0.8) : dG < 14 ? rnd(0.45, 0.75) : rnd(0.65, 0.92), curl);
+        shoot(G, p, aiShot(G, p, r, dG, ang));
         return true;
       }
     }
@@ -352,6 +457,23 @@
       return true;
     }
     return false;
+  }
+  /* how the computer shoots: the type for the situation, a corner, a power near the sweet spot */
+  function aiShot(G, p, r, dG, ang) {
+    const keep = teamOf(G, opp(p.t)).find(q => q.role === 'GK'), off = keep ? Math.abs(keep.y - goalY(G, p.t)) : 0;
+    const far = p.x > CX ? -1 : 1;
+    let type = 'drive', across = far * rnd(0.55, 0.95);
+    if (r === 'pen') { across = (Math.random() < 0.5 ? -1 : 1) * rnd(0.45, 0.9); }
+    else if (r === 'fk') type = 'finesse';
+    else if (off > 5 && dG > 11 && dG < 26 && Math.random() < 0.45) { type = 'chip'; across = rnd(-0.3, 0.3); }
+    else if (dG < 10) type = 'low';
+    else if (ang > 0.3 && dG < 23 && Math.random() < 0.5) type = 'finesse';
+    else if (dG > 22 && Math.random() < 0.35) type = 'power';
+    const ss = sweet(G, p);
+    let pw = type === 'low' ? rnd(0.15, 0.3) : type === 'power' ? rnd(0.92, 1) : type === 'chip' ? 0.5 : clamp(ss.c + gauss() * 0.12, 0.33, 0.88);
+    const roll = Math.random(), timing = type === 'power' ? (roll < 0.5 ? 'good' : 'over') : roll < 0.12 + p.a.sho / 240 ? 'perfect' : roll < 0.78 ? 'good' : roll < 0.9 ? 'early' : 'over';
+    if (timing === 'perfect') pw = ss.c;
+    return { type, pw, across, timing };
   }
   /* where an AI carrier runs with the ball: at goal, bending away from whoever is in front */
   function dribbleTarget(G, p) {
@@ -462,9 +584,18 @@
     }
     const sh = G.shot;
     if (sh && sh.by.t !== t && !b.owner && b.vy * toward > 2) {
-      if (!g.react) g.react = G.t + 0.12 + (90 - g.a.gk) * 0.003 + rnd(0, 0.08) - (sh.pen ? 0.1 : 0);
+      /* set for a shot from close (he reads the body), slower to a strike from range; later through a crowd */
+      if (!g.react) g.react = G.t + 0.05 + Math.min(30, sh.dist || 15) * 0.0065 + (90 - g.a.gk) * 0.003 + rnd(0, 0.06) - (sh.pen ? 0.1 : 0) + (sh.screen ? 0.15 : 0) + (sh.timing === 'perfect' ? 0.04 : 0);
+      if (sh.chip && Math.abs(g.y - gy) < 4.5 && !g.dive) {
+        /* a chip over a keeper who is near his line: back-pedal to it, under the ball */
+        const path = PS.phys.predict(b, c => (c.y - gy) * toward >= -0.3);
+        const e = path[path.length - 1];
+        if (e) { g.tx = clamp(e.x, CX - POST, CX + POST); g.ty = gy - toward * 0.4; g.want = 5.5 + g.a.gk * 0.01; }
+        return;
+      }
       if (G.t >= g.react && !g.dive) {
-        const path = PS.phys.predict(b, c => (c.y - g.y) * toward >= 0);
+        /* he reads the bend only in part: a curling shot ends up nearer the post than he dives for */
+        const path = PS.phys.predict(Object.assign({}, b, { spin: b.spin * (0.1 + g.a.gk * 0.004) }), c => (c.y - g.y) * toward >= 0);
         const e = path[path.length - 1];
         if (e && (e.y - g.y) * toward >= -0.4) {
           let x = e.x;
@@ -477,11 +608,11 @@
       }
     } else if (!sh) { g.react = 0; if (g.dive && G.t - g.dive > 1.2) g.dive = 0; }
     if (g.dive) {
-      const sp = 2.3 + g.a.gk * 0.012, dx = g.diveX - g.x;
+      const sp = 1.75 + g.a.gk * 0.01, dx = g.diveX - g.x;
       g.vx = clamp(dx * 9, -sp, sp); g.vy = 0; g.tx = g.x + g.vx * 0.1; g.ty = g.y; g.want = sp; return;
     }
     /* on the line between the ball and the middle of the goal, off it to narrow the angle */
-    const dd = hyp(CX - b.x, gy - b.y) || 1, off = G.restart && G.restart.k === 'pen' ? 0.3 : clamp(dd * 0.17, 1, 5.5);
+    const dd = hyp(CX - b.x, gy - b.y) || 1, off = G.restart && G.restart.k === 'pen' ? 0.3 : clamp(0.8 + dd * 0.1, 0.8, 3.0);   // a few metres off his line, never so far a dipping shot goes over him
     g.tx = CX + (b.x - CX) / dd * off; g.ty = gy + (b.y - gy) / dd * off; g.want = 6;
     const own = b.owner, inBox = Math.abs(b.y - gy) < PITCH.BOXD && Math.abs(b.x - CX) < PITCH.BOXW / 2;
     if (own && own.t !== t && inBox && dd < 11 && G.phase === 'play') { g.tx = b.x; g.ty = b.y; g.want = 7; if (d2(g, own) < 1.3 && g.cd <= 0) { g.cd = 0.7; if (Math.random() < 0.28 + g.a.gk * 0.003) win(G, g, own, true); } }
@@ -552,7 +683,7 @@
       p.tx = c.x + gx / gl * 0.9; p.ty = c.y + g2 / gl * 0.9; p.want = maxSpd(p) * (p.sprint ? 1 : 0.9); G.assist = false;
       if (d2(p, c) < 1.4 && p.cd <= 0 && Math.random() < dt * 2) tackle(G, p, c);
     }
-    const has = b.owner === p, near = !b.owner && d2(b, p) < 1.6 && b.z < 2.2;
+    const has = b.owner === p, near = !b.owner && d2(b, p) < 2.0 && b.z < 2.2;
     const myTeamHas = possTeam(G) === p.t;
     const dir = steering ? { x: st.x / st.m, y: st.y / st.m } : { x: Math.sin(p.face), y: Math.cos(p.face) };
     /* restarts: the taker waits for the user */
@@ -579,12 +710,11 @@
     const b = G.ball, gy = goalY(G, p.t);
     if (e.k === 'shoot') {
       if (!e.up) return;   // shots fire on release, with the power of the hold
-      const pw = clamp(e.dur / 0.9, 0.12, 1);
-      /* aim: the stick's sideways part (across the goal, as the camera sees it) picks the spot; none, the far post */
-      const st = stickWorld(G), across = st.m > 0.3 ? st.x / st.m : 0;
-      const far = p.x > CX ? -1 : 1, tx = st.m > 0.3 ? CX + clamp(across * 4.2 * (gy === L ? 1 : 1), -(POST - 0.3), POST - 0.3) : CX + far * (POST - 0.8);
-      const curl = st.m > 0.3 ? -across * 10 * Math.sign(gy - p.y) : 0;
-      shoot(G, p, tx, pw, curl);
+      if (e.type === 'fake') return fakeShot(G, p);
+      const pw = clamp(e.dur / 0.9, 0.05, 1), ss = sweet(G, p);
+      /* aim: the stick's part across the goal picks the spot; none, the far post */
+      const st = stickWorld(G);
+      shoot(G, p, { type: e.type || 'drive', pw, across: st.m > 0.3 ? acrossOf(G, p, st) : null, timing: timingOf(pw, ss) });
       return;
     }
     if (e.k === 'pass' || e.k === 'through') {
@@ -779,6 +909,10 @@
       }
       if (b.x < -R * 2 || b.x > W + R * 2) return outOfPlay(G);
       saves(G, py);
+      if (G.shot && !G.shot.slowed && !G.ff && G.shot.by.ctl !== undefined) {
+        const gy = goalY(G, G.shot.by.t), dl = Math.abs(gy - b.y), toward = (gy - b.y) * b.vy > 0;
+        if (toward && dl < 7 && Math.abs(b.x - CX) < POST + 1.5 && b.z < PITCH.GH + 1) { G.shot.slowed = true; G.slow = 0.35; G.slowT = 0.35; }
+      }
       touches(G);
       if (b.owner) return;
     }
@@ -790,7 +924,11 @@
     /* over a goal line: whose end? */
     const endY = b.y > L / 2 ? L : 0;
     const defending = [0, 1].find(t => ownY(G, t) === endY);
-    if (G.shot && G.shot.by.t !== defending) say(G, `${G.shot.by.name} shoots wide.`, 'chance');
+    if (G.shot && G.shot.by.t !== defending) {
+      const sh = G.shot, over = b.z > PITCH.GH - 0.1 && Math.abs(b.x - CX) < POST + 1, near = Math.abs(Math.abs(b.x - CX) - POST) < 1.2;
+      const what = over ? (b.z < PITCH.GH + 0.8 ? 'Just over the bar!' : 'Over the bar.') : near ? 'Inches wide!' : 'Wide.';
+      say(G, `${sh.by.name}: ${what}`, 'miss'); G.events.push({ k: 'miss', what, ctl: !!sh.by.ctl, timing: sh.timing });
+    }
     if (lt === defending) stop(G, 'corner', opp(defending), b.x, endY, `Corner to ${G.teams[opp(defending)].club.ab}.`);
     else stop(G, 'goalkick', defending, b.x, endY, '');
   }
@@ -799,9 +937,12 @@
     const t = opp(sh.by.t), g = teamOf(G, t).find(p => p.role === 'GK'); if (!g) return;
     const toward = -G.side[t];
     if (!((py - g.y) * toward < 0 && (b.y - g.y) * toward >= -0.1)) return;
-    const reach = (sh.pen ? 0.35 : 0.6) + (g.dive ? clamp((G.t - g.dive) * 3, 0, 1.1) : 0) + g.a.gk * 0.002, dxk = Math.abs(b.x - g.x);
+    /* how far he can get to: standing reach, then the dive as it unfolds; the top corner is the last place a keeper
+       gets to (dives up take longer than dives low), and a chip that is over his head is gone */
+    const dz = Math.max(0, b.z - 1.7), reach = ((sh.pen ? 0.35 : 1.0) + (g.dive ? clamp((G.t - g.dive) * 2.1, 0, 0.95) : 0) + g.a.gk * 0.002) * (1 - dz * 0.42), dxk = Math.abs(b.x - g.x);
+    const offLine = Math.abs(g.y - ownY(G, t)), maxH = 2.3 + g.a.gk * 0.002 - (offLine > 4 && sh.chip ? 0.2 : 0);
     const e = clamp((dxk / reach - 0.45) / 0.55, 0, 1), hands = 0.97 - (sh.pen ? 0.62 : 0.55) * e * e * (3 - 2 * e) - Math.max(0, hyp(b.vx, b.vy) - 24) * 0.012;
-    if (dxk < reach && b.z < 2.3 + g.a.gk * 0.002 && Math.random() < hands) {
+    if (dxk < reach && b.z < maxH && Math.random() < hands) {
       const sp = hyp(b.vx, b.vy, b.vz);
       G.stats[sh.by.t].onT++; sh.by.st.ot++; g.st.sv++; G.stats[t].saves++;
       G.events.push({ k: 'save' });
@@ -883,7 +1024,14 @@
     if (assist) assist.st.as++;
     G.scorers.push({ side: t, name: own ? (by ? by.name + ' (o.g.)' : 'Own goal') : by ? by.name : '?', min: minute(G), you: !!(by && by.me && !own), assist: !!(assist && assist.me), p: by });
     say(G, own ? `OWN GOAL! ${by ? by.name : ''} turns it into his own net.` : `GOAL! ${by ? by.name : ''} scores for ${G.teams[t].club.name}!` + (assist ? ` (${assist.name})` : ''), 'goal' + (t === 0 ? '' : ' them'));
-    G.events.push({ k: 'goal', t, by, assist });
+    /* where it went in, for the call: the corner, the pace, the distance */
+    let how = '';
+    if (G.shot && !own) {
+      const sh = G.shot, ax = Math.abs(b.x - CX), hi = b.z > 1.6, lo = b.z < 0.6, corner = ax > POST - 1.3;
+      how = sh.type === 'chip' ? 'Chipped' : corner && hi ? 'Top corner' : corner && lo ? 'Bottom corner' : sh.type === 'finesse' ? 'Curled in' : sh.type === 'volley' ? 'On the volley' : hi ? 'Into the roof of the net' : ax < 1 && lo ? 'Through the middle' : 'Finished';
+      how += ` \u00b7 ${Math.round(sh.dist || 0)} m \u00b7 ${sh.kmh || 0} km/h` + (sh.timing === 'perfect' ? ' \u00b7 perfect strike' : '');
+    } else if (by && !G.shot && !own) how = 'Header';
+    G.events.push({ k: 'goal', t, by, assist, how, x: b.x, z: b.z, endY });
     G.phase = 'goal'; G.phaseT = 0; G.concede = opp(t); G.shot = null; G.pass = null;
     /* the celebration: the scorer wheels away, his teammates follow; the other side's heads drop */
     if (by && !own) { by.act = { k: 'cele', t: 0, T: 3.2, c: ['arms', 'knee', 'point', 'plane', 'dance'][Math.floor(Math.random() * 5)] }; by.face = Math.atan2(CX - by.x, (L / 2 - by.y) * 0.3 + (by.x > CX ? 1 : -1)); by.goalie = true; }
@@ -945,5 +1093,5 @@
     G.ff = was;
   }
 
-  PS.Match = { create, step, resume, result, fastForward, rating, minute, FORMS, possTeam, goalY, depth, d2 };
+  PS.Match = { create, step, resume, result, fastForward, rating, minute, FORMS, possTeam, goalY, depth, d2, aimPreview, _shot: { shotPlan, sweet, timingOf, shoot } };
 })();

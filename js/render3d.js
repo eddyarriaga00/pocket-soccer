@@ -13,6 +13,7 @@
 
   const R = PS.R3 = { zoom: 1 };
   let renderer, scene, camera, wrap, stadium, ballM, ballS, ring, arrow, star, rigs = new Map(), G = null, netMats = [], camPos = new T.Vector3(), camLook = new T.Vector3(), camInit = false, dprCap = 2, slowFrames = 0;
+  let reticle, trail, trailPts = [], nets = {}, bulge = null;
 
   function init(el) {
     wrap = el;
@@ -39,6 +40,14 @@
     const ag = new T.ConeGeometry(0.22, 0.4, 3); ag.rotateX(Math.PI);
     arrow = new T.Mesh(ag, new T.MeshBasicMaterial({ color: 0x3ee08f })); scene.add(arrow);
     star = new T.Mesh(new T.OctahedronGeometry(0.16), new T.MeshBasicMaterial({ color: 0xffd23f })); scene.add(star);
+    /* the aim: a ring in the goal mouth while Shoot is held (its size is the error cone), a dot at its middle */
+    reticle = new T.Group();
+    const rr = new T.Mesh(new T.RingGeometry(0.86, 1, 40), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthTest: false, side: T.DoubleSide }));
+    const rd = new T.Mesh(new T.CircleGeometry(0.12, 16), new T.MeshBasicMaterial({ color: 0xffffff, depthTest: false, side: T.DoubleSide }));
+    rr.renderOrder = rd.renderOrder = 10; reticle.add(rr, rd); reticle.userData = { ring: rr, dot: rd }; reticle.visible = false; scene.add(reticle);
+    /* a trail behind a struck ball */
+    trail = new T.InstancedMesh(new T.SphereGeometry(0.1, 8, 6), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false }), 18);
+    trail.count = 0; trail.frustumCulled = false; scene.add(trail);
     addEventListener('resize', resize); resize();
   }
   function resize() {
@@ -104,7 +113,8 @@
       const post = (x, y, len, rot) => { const m = new T.Mesh(new T.CylinderGeometry(0.06, 0.06, len, 10), white); m.position.set(x, y, gz); if (rot) m.rotation.z = Math.PI / 2; S.add(m); };
       post(-hw, h / 2, h); post(hw, h / 2, h); post(0, h, hw * 2 + 0.12, true);
       const nm = new T.MeshBasicMaterial({ map: net.clone(), transparent: true, side: T.DoubleSide, depthWrite: false }); nm.map.needsUpdate = true; nm.map.repeat.set(hw * 2 / 0.6, h / 0.6); nm.map.wrapS = nm.map.wrapT = T.RepeatWrapping; netMats.push(nm);
-      const back = new T.Mesh(new T.PlaneGeometry(hw * 2, Math.hypot(h, 0.6)), nm); back.position.set(0, h / 2, gz + s * d); back.rotation.x = s * Math.atan2(0.6, h) * 0; S.add(back);
+      const back = new T.Mesh(new T.PlaneGeometry(hw * 2, h, 18, 8), nm); back.position.set(0, h / 2, gz + s * d); S.add(back);
+      nets[end] = { mesh: back, base: back.geometry.attributes.position.array.slice(), s };
       const top = new T.Mesh(new T.PlaneGeometry(hw * 2, d), nm); top.rotation.x = Math.PI / 2; top.position.set(0, h, gz + s * d / 2); S.add(top);
       for (const sx of [-1, 1]) { const side = new T.Mesh(new T.PlaneGeometry(d, h), nm); side.rotation.y = Math.PI / 2; side.position.set(sx * hw, h / 2, gz + s * d / 2); S.add(side); }
       /* the frame behind */
@@ -133,8 +143,8 @@
           g.fillStyle = cols[Math.floor(Math.random() * cols.length)]; g.beginPath(); g.ellipse(x + 3.5, y + 8, 3.6, 4, 0, 0, Math.PI * 2); g.fill();
           g.fillStyle = '#c69c7a'; g.globalAlpha = 0.55; g.beginPath(); g.arc(x + 3.5, y + 2.5, 2, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
       }
-    }, [5, 2]);
-    const standMat = new T.MeshLambertMaterial({ map: crowd });
+    }, [9, 4]);
+    const standMat = new T.MeshLambertMaterial({ map: crowd, color: 0x9aa3b5 });   // dimmed: the crowd sits back behind the pitch
     const stand = (w, d, x, z, ry) => {
       const g = new T.Group(); const rows = new T.Mesh(new T.PlaneGeometry(w, Math.hypot(d, d * 0.62)), standMat);
       rows.rotation.x = -Math.atan2(d * 0.62, d); rows.position.set(0, d * 0.31 + 1.2, -d / 2); g.add(rows);
@@ -200,6 +210,7 @@
     const k = 1 - Math.exp(-dt * 3.2);
     camPos.lerp(want, k); camLook.lerp(look, k);
     camera.position.copy(camPos); camera.lookAt(camLook);
+    if (R.shake > 0.002) { camera.position.x += (Math.random() - 0.5) * R.shake; camera.position.y += (Math.random() - 0.5) * R.shake; R.shake *= Math.exp(-dt * 9); }
     if (R.studio) { camera.position.set(...R.studio[0]); camera.lookAt(...R.studio[1]); }   /* tests: a fixed camera */
     G.cam.fx = 0; G.cam.fy = s;
   }
@@ -227,7 +238,9 @@
     ring.visible = !!c && G.phase !== 'goal'; arrow.visible = ring.visible;
     if (c) { ring.position.set(X(c.x), 0.03, Z(c.y)); arrow.position.set(X(c.x), 2.45 + Math.sin(performance.now() / 220) * 0.08, Z(c.y)); arrow.rotation.y += dt * 2; }
     star.visible = false;
-    /* the net bulges when the ball is in it */
+    aimTick();
+    trailTick(dt);
+    netTick(dt);
     renderer.render(scene, camera);
     /* adapt: a phone that cannot keep up draws fewer pixels */
     if (dt > 0.045) slowFrames++; else slowFrames = Math.max(0, slowFrames - 1);
@@ -235,6 +248,35 @@
   }
   /* a still picture for menus: the stadium, players at kick-off, the camera high behind one end */
   function showcase() { if (!renderer) return; camera.position.set(18, 24, -L / 2 - 14); camera.lookAt(0, 0, 0); renderer.render(scene, camera); }
+  const COLS = { perfect: 0x3ee08f, good: 0xffffff, early: 0x9aa6bd, over: 0xff5a6b };
+  function aimTick() {
+    const pv = G.input && G.input.charge ? PS.Match.aimPreview(G) : null;
+    reticle.visible = !!pv && !pv.fake;
+    if (!reticle.visible) return;
+    const s = pv.gy > L / 2 ? 1 : -1;
+    reticle.position.set(X(pv.tx), pv.tz, Z(pv.gy) - s * 0.05);
+    reticle.userData.ring.scale.setScalar(pv.r); reticle.userData.ring.material.color.setHex(COLS[pv.timing] || 0xffffff);
+    reticle.userData.dot.material.color.setHex(COLS[pv.timing] || 0xffffff);
+  }
+  const _m = new T.Matrix4(), _p = new T.Vector3(), _q = new T.Quaternion(), _s = new T.Vector3();
+  function trailTick(dt) {
+    const b = G.ball, now = performance.now(), sp = Math.hypot(b.vx, b.vy, b.vz);
+    if (!b.owner && (G.shot || sp > 19)) trailPts.push({ x: X(b.x), y: b.z, z: Z(b.y), t: now });
+    trailPts = trailPts.filter(q => now - q.t < 260);
+    trail.count = Math.min(18, trailPts.length);
+    for (let i = 0; i < trail.count; i++) { const q = trailPts[trailPts.length - 1 - i], k = 1 - (now - q.t) / 260; _p.set(q.x, q.y, q.z); _s.setScalar(Math.max(0.05, k) * 1.1); _m.compose(_p, _q, _s); trail.setMatrixAt(i, _m); }
+    trail.instanceMatrix.needsUpdate = true;
+  }
+  /* the net: where the ball hits, the mesh balloons out and settles in a few wobbles */
+  R.goal = (endY, x, z) => { const n = nets[endY]; if (n) bulge = { n, x: X(x), y: z, t: 0 }; };
+  function netTick(dt) {
+    if (!bulge) return;
+    bulge.t += dt;
+    const n = bulge.n, pos = n.mesh.geometry.attributes.position, a = pos.array, b0 = n.base, amp = 0.55 * Math.exp(-bulge.t * 2.4) * Math.cos(bulge.t * 11);
+    for (let i = 0; i < pos.count; i++) { const x = b0[i * 3], y = b0[i * 3 + 1] + PITCH.GH / 2, d2 = (x - bulge.x) ** 2 + (y - bulge.y) ** 2; a[i * 3 + 2] = b0[i * 3 + 2] + n.s * amp * Math.exp(-d2 / 0.9); }
+    pos.needsUpdate = true;
+    if (bulge.t > 2) { a.set(b0); pos.needsUpdate = true; bulge = null; }
+  }
   function detach() { G = null; for (const [, r] of rigs) scene.remove(r.root); rigs.clear(); }
 
   R.init = init; R.attach = attach; R.frame = frame; R.resize = resize; R.showcase = showcase; R.detach = detach;

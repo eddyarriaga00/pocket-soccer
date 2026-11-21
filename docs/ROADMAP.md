@@ -10,6 +10,7 @@ Update this file after every item.
 - **Rollback points:** before every push to `main`, add a line below with the commit `main` is on and what the push
   brings. To go back: `git revert --no-edit <commit>..main`, then push `main`.
 - **Rollback points** (newest first; the commit is the last good `main` before that change):
+  - `dfc55bc`, before the shooting rebuild: shot types, timed finishing, aim reticle, new keeper rules (2026-11-21).
   - `36f6243`, before the 3D rebuild: full 11 v 11 matches, the pocket player models, FIFA-style controls (2026-11-21). That commit is the one-thumb "moments" prototype.
 
 ## How to test
@@ -42,6 +43,18 @@ Update this file after every item.
 - [x] Sound synthesized in the browser
 - [x] 60 fps on an iPhone-sized WebKit page (M1), about 0.9 s to simulate a whole match headless
 
+### M0.6 Shooting (2026-11-21) ✅
+- [x] Six shot types: drive, low driven (let go early), finesse (swipe down), chip (swipe up), power (full bar),
+      volley (a ball in the air); a fake shot (swipe sideways) that defenders can buy
+- [x] Timed finishing: a sweet spot on the power bar that moves with the distance; perfect / good / early / overhit
+- [x] Error cone from shooting rating, pace, pressure, body angle, weaker foot (career foot), a ball in the air, a sprint
+- [x] Aim solver for every type (curl and dip still land on the aimed spot); keeper reaction by distance, unsighted
+      through traffic, top corners hardest, curl only partly read, chips beat a keeper off his line (one on it
+      back-pedals)
+- [x] Aim reticle in the goal, power bar with the sweet spot and the shot type, timing call, ball trail, hit-stop,
+      camera shake, slow motion at the line, rippling net, goal call (where, distance, km/h), miss calls
+- [x] tools/shotlab.js: goal / saved / off target by type, timing and distance
+
 ### M1 Feel (next)
 - [ ] Play it on a real phone: stick size, button spacing, shot power curve, pass assist cone
 - [ ] Skill moves (a button for a step-over / roulette), first-time shots and volleys on demand
@@ -65,6 +78,16 @@ Update this file after every item.
 
 ### M4 Presentation / M5 Positions / M6 Extras
 See PLAN.md section 9.
+
+## Shooting lab (node tools/shotlab.js 150: shooting 75, keeper only, aimed at corners)
+
+goal / saved / off target %   6 m   11 m   16 m   20 m   25 m   30 m
+drive, good                   99     87     36     21      8      7
+drive, perfect               100     97     60     25      7      7
+drive, overhit                94     69     33     15      6      1   (off target 21-84%)
+finesse, perfect              99     95     73     29      7      3
+power, good                   99     85     48     24      8      5
+chip v keeper 7 m out          0      1     80     76     73     62   (v a keeper on his line: 2-7%)
 
 ## Balance (node tools/harness.js, 48 matches of 3-minute halves)
 

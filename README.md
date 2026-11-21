@@ -32,6 +32,15 @@ JavaScript and three.js, no install, no build step. Every club and player is fic
 - A broadcast camera behind your attack (portrait: you always play up the screen); it drops back when you defend.
 - Sound made on the spot: crowd, kicks, whistle, net, post.
 
+## Shooting
+
+Six shots from one button: a driven shot, a low drive (let go early), a curled finesse (swipe down), a chip (swipe
+up), a power shot (hold to the end) and volleys; a fake shot (swipe sideways) to send a defender to ground. The power
+bar has a green sweet spot that moves with the distance: release in it for a perfect strike. A ring in the goal shows
+where it is going and how far it may stray; shooting across your body, on your weaker foot, at a sprint or under
+pressure widens it. Keepers react faster to close shots, struggle with the top corner and with curl, and can be
+chipped when they come out. `node tools/shotlab.js` prints the numbers.
+
 ## Controls
 
 Left thumb: a floating stick (let go and your player keeps moving on his own). Right thumb: four buttons that change
@@ -39,11 +48,11 @@ with the play.
 
 | | Big button | Pass | Through | Small |
 |---|---|---|---|---|
-| Your ball | Shoot (hold for power, aim with the stick) | Pass (hold = lob / cross) | Through ball (hold = chipped) | Sprint |
+| Your ball | Shoot (hold for power, aim with the stick; swipe up = chip, down = finesse, sideways = fake) | Pass (hold = lob / cross) | Through ball (hold = chipped) | Sprint |
 | A teammate's (career) | | Call for it | Run in behind | Sprint |
 | Theirs | Tackle | Switch (Kick-off) / Press (career, hold) | Slide | Sprint |
 
-Keyboard: arrows or WASD, Space, J, K, Shift, E.
+Keyboard: arrows or WASD, Space (shoot; U chip, I finesse), J, K, Shift, E.
 
 ## Docs
 
