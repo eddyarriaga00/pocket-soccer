@@ -23,6 +23,7 @@ for (let s = 0; s < N; s++) {
   const lg = C.lgs.map(L => `${D.LEAGUES[L.id].ab} ${L.round}/${L.fx.length} → ${D.CLUBS[K.table(L.id)[0].i].ab}`).join(' · ');
   console.log(`S${C.season} ${C.year} ${K.club().ab} (${D.LEAGUES[K.club().lg].ab}) played`, kinds, `| cup: ${C.cup ? K.team(C.cup.win).ab : '-'} | CC: ${C.cl ? K.team(C.cl.win).ab : '-'} | ${C.tour ? C.tour.name + ': ' + K.team(C.tour.win).name : 'no tournament'} | caps ${C.intl.caps}`);
   console.log('   ', lg);
+  console.log('    rival:', K.C.rival.name, K.team(K.C.rival.club).ab, 'ovr', K.C.rival.ovr, 'goals', K.C.rival.ss.g, 'in', K.C.rival.ss.apps, 'h2h', K.C.rival.h2h.join('-'));
   console.log('    awards:', C.summary.awards.join('; ') || '-', '| offers:', (C.offers || []).map(o => D.CLUBS[o.i].ab + '/' + D.LEAGUES[D.CLUBS[o.i].lg].ab).join(' '));
   if (C.lgs.some(L => L.round !== L.fx.length)) fail('a league did not finish');
   if (C.cup && C.cup.win == null) fail('cup unfinished');

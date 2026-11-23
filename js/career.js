@@ -51,8 +51,9 @@
       if (h === skip || a === skip) continue;
       const [x, y] = PS.sim.quick(T(h), T(a));
       recordResult(Lg, h, a, x, y);
-      for (let k = 0; k < x; k++) addScorer(Lg, h, C.squads[h][[9, 9, 10, 11, 7, 8][Math.floor(Math.random() * 6)]]);
-      for (let k = 0; k < y; k++) addScorer(Lg, a, C.squads[a][[9, 9, 10, 11, 7, 8][Math.floor(Math.random() * 6)]]);
+      const xr = C.rival ? rivalGoals(Lg, h, x) : x, yr = C.rival ? rivalGoals(Lg, a, y) : y;
+      for (let k = 0; k < xr; k++) addScorer(Lg, h, C.squads[h][[9, 9, 10, 11, 7, 8][Math.floor(Math.random() * 6)]]);
+      for (let k = 0; k < yr; k++) addScorer(Lg, a, C.squads[a][[9, 9, 10, 11, 7, 8][Math.floor(Math.random() * 6)]]);
     }
     Lg.round++;
   }
@@ -123,14 +124,16 @@
   function create(o) {
     const base = { ST: { pac: 62, sho: 60, pas: 48, dri: 56, def: 30, phy: 54 }, W: { pac: 66, sho: 52, pas: 54, dri: 60, def: 32, phy: 46 },
       CM: { pac: 54, sho: 50, pas: 60, dri: 56, def: 48, phy: 52 } }[o.pos];
-    const a = {}; for (const k in base) a[k] = clamp(Math.round(base[k] + rnd(-3, 3)), 25, 80);
+    const path = o.path || 'academy', PATH = { academy: { trust: 34, pot: [84, 94], plus: 0, xp: 150 }, rebuilt: { trust: 48, pot: [82, 92], plus: 2, xp: 450 }, wonderkid: { trust: 22, pot: [88, 96], plus: -1, xp: 150 } }[path];
+    const a = {}; for (const k in base) a[k] = clamp(Math.round(base[k] + rnd(-3, 3) + PATH.plus), 25, 80);
     C = {
       v: 1, name: o.name.trim() || 'A. Player', nation: o.nation, pos: o.pos, foot: o.foot, skin: o.skin ?? 3, look: o.look || null, num: o.pos === 'ST' ? 9 : o.pos === 'W' ? 11 : 8,
-      age: 17, season: 1, year: 2027, club: o.club, a, pot: Math.round(rnd(84, 94)), xp: 150, trust: 34,
+      age: 17, season: 1, year: 2027, club: o.club, a, pot: Math.round(rnd(...PATH.pot)), xp: PATH.xp, trust: PATH.trust, path,
       seed: Math.floor(Math.random() * 1e9), wk: 0, totals: { apps: 0, goals: 0, assists: 0 }, history: [], news: [], trophies: [], offers: null, last: null
     };
-    alias(); newSeason();
-    news(`${C.name} signs a first professional contract with ${club().name}. “A massive day for me and my family.”`);
+    alias(); makeRival(o.rival);
+    newSeason();
+    roadIn();
     save();
     return C;
   }
@@ -139,6 +142,66 @@
   /* your role: the club manager's trust, or for your country how you measure up to its other players */
   function role(f) { if (f && (f.k === 'nat' || f.k === 'tour')) return natRole(); return C.trust >= 62 ? 'starter' : C.trust >= 38 ? 'rotation' : 'bench'; }
   function news(t) { C.news.unshift({ s: C.season, r: C.wk || 0, t }); C.news.length = Math.min(C.news.length, 40); }
+
+  /* ---------- the road in, your rival and the scenes between matches ----------
+     Three ways in (PocketBasketball's paths): the academy graduate, the one who was released at sixteen and rebuilt
+     himself, the wonderkid a big club paid for. Each comes with a rival from the same academy year who plays your
+     position: he is in the other shirt when your clubs meet (and the two of you meet face to face in the walkout),
+     his goals are in the scorers' race, and he moves clubs as his career goes. Scenes (C.scenes) are the cutscenes:
+     a few panels with a portrait, shown before the hub when something big happens. */
+  const RIVAL_LOOKS = ['fade', 'short', 'curly', 'afro', 'buzz', 'locs', 'long'];
+  function makeRival(o) {
+    const r = Math.random, me = club(), lg = clubsOf(me.lg).filter(i => i !== C.club).sort((x, y) => D.CLUBS[y].ovr - D.CLUBS[x].ovr);
+    const first = o && o.name || D.FIRST[Math.floor(r() * D.FIRST.length)], last = D.LAST[Math.floor(r() * D.LAST.length)];
+    /* released: the big club kept him and let you go; wonderkid: he stayed at a smaller club and plays every week;
+       academy: he chose your local rivals */
+    const rc = C.path === 'rebuilt' ? lg[0] : C.path === 'wonderkid' ? lg[lg.length - 1] : (derbyOf(C.club) >= 0 ? derbyOf(C.club) : lg[1]);
+    C.rival = { name: first + ' ' + last, short: first[0] + '. ' + last, pos: C.pos, club: rc, ovr: ovr(C.a, C.pos) + 2, pot: C.pot + Math.round(rnd(-3, 3)), num: C.pos === 'ST' ? 9 : C.pos === 'W' ? 7 : 10,
+      skin: Math.floor(r() * 6), look: { hair: RIVAL_LOOKS[Math.floor(r() * RIVAL_LOOKS.length)], hairColor: '#17110d', face: 1 }, ss: { g: 0, apps: 0 }, tot: { g: 0, apps: 0 }, h2h: [0, 0, 0], met: 0, hist: [] };
+  }
+  const RV = () => C.rival;
+  /* is your rival in this match (his club, a club competition)? the match engine puts him in the other shirt */
+  function rivalIn(f) { const r = RV(); if (!r || !f || f.opp !== r.club || f.k === 'nat' || f.k === 'tour') return null; return { name: r.short, pos: r.pos, num: r.num, skin: r.skin, look: r.look }; }
+  /* his own matches: a share of his club's goals by position, as for everybody in the scorers' race */
+  const rivalShare = () => ({ ST: 0.34, W: 0.24, CM: 0.15 })[RV().pos] * clamp(1 + (RV().ovr - T(RV().club).ovr) / 25, 0.6, 1.6);
+  function rivalGoals(Lg, ci, n) {
+    const r = RV(); if (!r || ci !== r.club) return n;
+    r.ss.apps++; r.tot.apps++;
+    let mine = 0; for (let k = 0; k < n; k++) if (Math.random() < rivalShare()) mine++;
+    if (mine) { addScorer(Lg, ci, r.short, mine); r.ss.g += mine; r.tot.g += mine; }
+    return n - mine;
+  }
+  function scene(k, panels) { (C.scenes = C.scenes || []).push({ k, panels }); }
+  function roadIn() {
+    const c = club(), n = C.name.split(' ').pop(), r = RV(), rc = T(r.club), lgN = D.LEAGUES[c.lg].name;
+    const P = {
+      academy: [['me', 'The academy', `Ten years in the ${c.name} academy. Every morning at ${c.ground} before school. Today you sign your first professional contract.`],
+        ['rival', 'The other one', `${r.name} came up in the same year, played your position, and scored as many as you did. He signed for ${rc.name} last week: your neighbours. The whole town knows the two of you.`],
+        ['coach', 'The manager', `“You start on the bench, ${n}. Train well and the minutes will come. Nobody gives you a shirt here.”`]],
+      rebuilt: [['rival', 'Sixteen', `${rc.name} let you go at sixteen. They kept ${r.name} and told you that you were too small. You heard it on the bus home.`],
+        ['me', 'The long way', `A year of extra sessions, a growth spurt and a trial nobody wanted to give you. ${c.name} said yes.`],
+        ['coach', 'The manager', `“I saw you at the trial. You play like you have something to prove. Good: you start.”`]],
+      wonderkid: [['me', 'The fee', `${c.name} paid a record fee for a 17-year-old. Every camera at ${c.ground} is pointed at you.`],
+        ['rival', 'The one who stayed', `${r.name} stayed at ${rc.name}, where he plays every week. Everybody will compare his minutes with yours.`],
+        ['coach', 'The manager', `“The price is not your problem. My job is to protect you. Your job is to be ready when I need you.”`]]
+    }[C.path || 'academy'];
+    scene('road', P.map(([who, title, text]) => ({ who, title, text })));
+    news(`${C.name} signs a first professional contract with ${c.name} (${lgN}). “A massive day for me and my family.”`);
+  }
+  /* your rival's summer: older, better (or not), and a bigger club when he has outgrown his own */
+  function rivalSummer() {
+    const r = RV(); if (!r) return;
+    r.hist.push({ y: C.year, club: r.club, g: r.ss.g, apps: r.ss.apps });
+    const age = C.age;   // same year as you
+    r.ovr = clamp(r.ovr + (age <= 23 ? rnd(1, 4) : age <= 29 ? rnd(-1, 1.5) : -rnd(0.5, 2.5)), 40, Math.min(97, r.pot + 2));
+    r.ovr = Math.round(r.ovr);
+    const now = T(r.club);
+    if (r.ovr > now.ovr + 3 && Math.random() < 0.6) {
+      const up = D.CLUBS.map((c, i) => ({ c, i })).filter(x => x.i !== r.club && x.i !== C.club && x.c.ovr > now.ovr && x.c.ovr <= r.ovr + 6).sort(() => Math.random() - 0.5)[0];
+      if (up) { news(`TRANSFER: your rival ${r.name} leaves ${now.name} for ${up.c.name} (${D.LEAGUES[up.c.lg].name}).`); r.club = up.i; }
+    }
+    r.ss = { g: 0, apps: 0 };
+  }
 
   /* is the next calendar event one you play in? */
   function involves(e) {
@@ -177,7 +240,8 @@
       return { k: 'lg', comp: D.LEAGUES[club().lg].name, stage: `Matchday ${Lg.round + 1} of ${Lg.fx.length}`, home, us: C.club, opp: home ? m[1] : m[0], round: Lg.round };
     }
     if (e.k === 'nat') {
-      if (!C.intl.ever) { C.intl.ever = true; news(`CALL-UP: ${C.name} is named in the ${C.nation} squad for the first time.`); }
+      if (!C.intl.ever) { C.intl.ever = true; news(`CALL-UP: ${C.name} is named in the ${C.nation} squad for the first time.`);
+        scene('callup', [{ who: 'me', kit: NAT(), title: 'The phone call', text: `The ${C.nation} manager rang himself. You are in the squad. Your mum cried; you pretended not to.` }]); save(); }
       return { k: 'nat', comp: 'International friendly', stage: 'International break', home: e.home, us: NAT(), opp: 'n:' + e.opp, round: C.ci };
     }
     const K = C[e.k], me = e.k === 'tour' ? NAT() : C.club, i = K.alive.indexOf(me);
@@ -220,6 +284,7 @@
     const streak = (C.streak || 0);
     if (!M.apps) return r === 'starter' ? S('debut', 'Your debut', 'Your first game as a professional, and you start') : S('debut', 'Your debut', 'On the bench: be ready when your number is called');
     if (M.prevClub != null && !M.clubApps) return S('newclub', 'New club', `Your first game for ${club().name}`);
+    if (RV() && f.opp === RV().club) { const h = RV().h2h; return S('rival', RV().met ? 'Face to face' : 'The first meeting', `${RV().name} and ${o.name}.${RV().met ? ` Head to head: won ${h[0]}, drawn ${h[1]}, lost ${h[2]}.` : ' Everybody has waited for this one.'}`); }
     if (f.k === 'cup' && !M.cupT) return S('cup', f.comp, `${f.stage}: lose and you are out`);
     if (M.prevClub === f.opp && !M.facedOld) return S('oldclub', 'Your old club', `First time against ${o.name} since you left`);
     if (derbyOf(C.club) === f.opp) return S('derby', 'Derby day', `${club().name} v ${o.name}: the one everybody wants to win`);
@@ -248,6 +313,7 @@
       tour: w ? `${C.nation} through${g ? `, and ${n} scores` : ''}: ${line}.` : `${C.nation} go out of the ${cp}.`, cap: `A first cap for ${n}: ${line} against ${o}.`, intl: `${C.nation} ${w ? 'beat' : last.score[0] === last.score[1] ? 'draw with' : 'lose to'} ${o}${g ? `; ${n} scores` : ''}.`,
       final: w ? `${club().name} win the ${cp}${g ? `, and ${n} scores in the final` : ''}!` : `Heartbreak for ${club().name} in the ${cp} final.`, europe: w ? `A big European night: ${club().name} beat ${o}.` : `${o} knock ${club().name} out of the Champions Cup.`,
       semi: w ? `${club().name} are in the ${cp} final.` : `${club().name} fall in the ${cp} semi-final.`, cup: w ? `${club().name} through in the ${cp}.` : `${club().name} knocked out of the ${cp} by ${o}.`,
+      rival: w ? `${n} gets the better of his rival ${RV() ? RV().name : ''}${g ? `, and scores` : ''}.` : last.score[0] === last.score[1] ? `${n} and ${RV() ? RV().name : 'his rival'} cancel each other out.` : `${RV() ? RV().name : 'His rival'} has the last word this time.`,
       rematch: w ? `Revenge for ${club().name} over ${o}.` : `${o} do it again.`, wstreak: w ? `${club().name} keep winning.` : `${club().name}'s winning run ends against ${o}.`, lstreak: w ? `${club().name} end the losing run.` : `The losing run goes on.` })[st.k] || null;
   }
   function remember(m, last) {
@@ -315,12 +381,19 @@
     if (played && s.goals >= 3) news(`HAT-TRICK! ${C.name} takes the match ball home after ${us.ab} ${m.score[0]}–${m.score[1]} ${them.ab}${club_ ? '' : ` for ${C.nation}`}.`);
     else if (played && s.goals) news(`${C.name} on the scoresheet as ${us.name} ${res} ${them.name}${f.k === 'lg' ? '' : ` (${f.comp})`}.`);
     if (pens) news(`${us.name} ${pens.won ? 'win' : 'lose'} ${Math.max(pens.us, pens.them)}–${Math.min(pens.us, pens.them)} on penalties against ${them.name} in the ${f.comp}.`);
-    if (f.k !== 'lg' && f.k !== 'nat') { const K = C[f.k]; if (K.win === f.us) { const a = f.k === 'tour' ? `${K.name} winner with ${C.nation}` : `${K.name} winner with ${us.name}`; C.trophies.push({ s: C.season, y: C.year, a }); news(`🏆 ${us.name} WIN THE ${K.name.toUpperCase()}!`); } }
+    if (f.k !== 'lg' && f.k !== 'nat') { const K = C[f.k]; if (K.win === f.us) { const a = f.k === 'tour' ? `${K.name} winner with ${C.nation}` : `${K.name} winner with ${us.name}`; C.trophies.push({ s: C.season, y: C.year, a }); news(`🏆 ${us.name} WIN THE ${K.name.toUpperCase()}!`);
+      scene('trophy', [{ who: 'me', kit: f.us, title: `${K.name} winners`, text: f.k === 'tour' ? `${C.nation} are champions. The whole country is in the streets tonight, and you were part of it.` : `${us.name} lift the ${K.name}. ${s.goals ? 'Your goal in the final will be on every screen tonight.' : 'Your first medal like this. Not the last.'}` }]); } }
     C.ci++; C.wk = (C.wk || 0) + 1;
     const after = role();
     if (after !== before) news(after === 'starter' ? `The manager: “${C.name.split(' ').pop()} has earned a place in my first eleven.”` :
       before === 'starter' ? `${C.name} drops out of the starting line-up.` : `${C.name} is ${after === 'rotation' ? 'pushing for a start' : 'out of favour'}.`);
     if (club_) remember(Object.assign({}, m, { oppIdx: f.opp }), C.last);
+    { const r = RV(); if (r && club_ && f.opp === r.club) {
+      r.met++; const w = m.score[0] > m.score[1] || (pens && pens.won), l = m.score[0] < m.score[1] || (pens && !pens.won);
+      r.h2h[w ? 0 : l ? 2 : 1]++;
+      const hisG = m.scorers.filter(g => g.side && g.name === r.short).length;
+      r.ss.apps++; r.tot.apps++; r.ss.g += hisG; r.tot.g += hisG;
+      C.last.rival = { his: hisG }; } }
     { const sn = storyNews(st0, C.last); if (sn) news(sn); C.last.story = st0; }
     advance();
     save();
@@ -341,7 +414,7 @@
     const avg = ss.ratings.length ? ss.ratings.reduce((s, v) => s + v, 0) / ss.ratings.length : 0;
     const top = scorers(1)[0];
     const awards = [];
-    if (pos === 1) awards.push(`${D.LEAGUES[club().lg].name} champions with ${club().name}`);
+    if (pos === 1) { awards.push(`${D.LEAGUES[club().lg].name} champions with ${club().name}`); scene('title', [{ who: 'me', title: 'Champions', text: `${club().name} win the ${D.LEAGUES[club().lg].name}. The open-top bus, the songs, a trophy with your name in the history of the club.` }]); }
     if (top && top.name.startsWith('★')) awards.push('Golden Boot');
     if (avg >= 7.4 && ss.apps >= 15) awards.push('Player of the Season');
     else if (avg >= 7.0 && ss.apps >= 12 && C.age <= 21) awards.push('Young Player of the Season');
@@ -349,7 +422,7 @@
     C.history.push({ s: C.season, y: C.year, club: C.club, lg: club().lg, caps: C.intl ? C.intl.caps : 0, age: C.age, apps: ss.apps, goals: ss.goals, assists: ss.assists, avg: Math.round(avg * 100) / 100, pos, ovr: ovr(C.a, C.pos), awards });
     /* the cups won during the season go in the review with the rest */
     awards.push(...C.trophies.filter(t => t.s === C.season && /winner/.test(t.a)).map(t => t.a));
-    C.summary = { pos, avg, awards, ss: { ...ss } };
+    C.summary = { pos, avg, awards, ss: { ...ss }, rival: RV() ? { name: RV().name, club: RV().club, g: RV().ss.g, apps: RV().ss.apps, h2h: RV().h2h.slice() } : null };
     /* around the world: every champion, and the top two of each league go into next season's Champions Cup */
     const champs = C.lgs.map(Lg => table(Lg.id)[0].i);
     C.qual = C.lgs.flatMap(Lg => table(Lg.id).slice(0, 2).map(r => r.i));
@@ -365,7 +438,8 @@
     news(`Season ${C.season} over: ${club().name} finish ${ord(pos)}. ${C.name}: ${ss.apps} apps, ${ss.goals} goals, ${ss.assists} assists, average ${avg.toFixed(2)}.`);
   }
   function nextSeason(moveTo) {
-    if (moveTo != null && moveTo !== C.club) { news(`TRANSFER: ${C.name} completes a move from ${club().name} to ${club(moveTo).name}.`); mem().prevClub = C.club; mem().clubApps = 0; mem().facedOld = false; C.club = moveTo; C.trust = 40; }
+    if (moveTo != null && moveTo !== C.club) { const to = club(moveTo); scene('move', [{ who: 'me', kit: moveTo, title: `Welcome to ${to.name}`, text: `The medical, the photos at ${to.ground}, a new number on the back. ${D.LEAGUES[to.lg].name}, ${D.LEAGUES[to.lg].country}: a new league, a new dressing room to win over.` }]);
+      news(`TRANSFER: ${C.name} completes a move from ${club().name} to ${club(moveTo).name}.`); mem().prevClub = C.club; mem().clubApps = 0; mem().facedOld = false; C.club = moveTo; C.trust = 40; }
     C.age++; C.season++; C.year++;
     /* the age curve: young players grow on their own a little, old ones lose pace first */
     for (const k in C.a) {
@@ -377,6 +451,7 @@
     /* the clubs move a little too */
     D.CLUBS.forEach(c => { c.ovr = clamp(Math.round(c.ovr + rnd(-2, 2)), 50, 90); });
     C.clubOvr = D.CLUBS.map(c => c.ovr);
+    rivalSummer();
     C.offers = null; C.summary = null; if (C.intl) C.intl.left = false;
     newSeason();
     save();
@@ -411,11 +486,12 @@
         C = s;
         if (Array.isArray(C.clubOvr)) C.clubOvr.forEach((v, i) => { if (D.CLUBS[i]) D.CLUBS[i].ovr = v; });
         if (!C.lgs) migrate(); else alias();
+        if (!C.rival) { C.path = C.path || 'academy'; makeRival(); }
       }
     } catch (e) { C = null; }
     return C;
   }
   function wipe() { try { localStorage.removeItem(KEY); } catch (e) { /* nothing saved */ } C = null; }
 
-  PS.career = { story, derbyOf, team: T, squad, clubsOf, involves, create, load, save, wipe, get C() { return C; }, ovr, cost: (v, pot) => cost(v, pot, C ? C.age : 20), cap: () => cap(), club, role, nextFixture, startMatch, finishMatch, table, scorers, nextSeason, upgrade, retired, ord };
+  PS.career = { story, derbyOf, team: T, squad, clubsOf, involves, rivalIn, rival: () => C && C.rival, scenes: () => (C && C.scenes) || [], sceneDone: () => { if (C && C.scenes) { C.scenes.shift(); save(); } }, create, load, save, wipe, get C() { return C; }, ovr, cost: (v, pot) => cost(v, pot, C ? C.age : 20), cap: () => cap(), club, role, nextFixture, startMatch, finishMatch, table, scorers, nextSeason, upgrade, retired, ord };
 })();

@@ -66,11 +66,50 @@
         G.ps.push(me); G.me = me; G.sub = { on: o.on, role: slot.role, slot };
       } else { Object.assign(slot, mine2); G.me = slot; }
     }
+    /* your rival, in the other side's shirt at your position (or up front) */
+    if (o.rival) { const th = G.ps.filter(p => p.t === 1 && p.role !== 'GK'), want = { ST: ['ST'], W: ['LW', 'RW', 'LM', 'RM'], CM: ['CM', 'AM', 'DM'] }[o.rival.pos] || ['ST'];
+      const rv = th.find(p => want.includes(p.role)) || th.find(p => p.role === 'ST') || th[th.length - 1];
+      Object.assign(rv, { name: o.rival.name, num: o.rival.num || rv.num, skin: o.rival.skin ?? rv.skin, look: o.rival.look || null, rival: true }); G.rival = rv; }
     G.kickTeam = Math.random() < 0.5 ? 0 : 1;
     kickoff(G, G.kickTeam);
+    /* the walkout: both sides in a line at halfway, facing the main stand, before the whistle (and, against your
+       rival, the two of you face to face). Only when somebody is watching: never in tests or a simmed match. */
+    if (o.walkout && !o.auto) walkout(G);
     G.ctl = G.mode === 'player' ? G.me : G.ps.find(p => p.t === 0 && p.role === 'ST');
     say(G, `Kick-off at ${(o.home ? o.teams[1] : o.teams[0]).ground || 'the stadium'}.`, 'ko');
     return G;
+  }
+  function walkout(G) {
+    G.phase = 'walkout'; G.phaseT = 0;
+    const face = !!(G.rival && G.me && !G.me.bench);
+    G.walk = { T: face ? 9.5 : 6.5, sweep: 6.2, face, cap: '' };
+    for (let t = 0; t < 2; t++) {
+      /* each side on its own half; the order down the line: keeper first, then by shirt number */
+      const line = G.ps.filter(p => p.t === t && !p.bench && !p.off).sort((a, b) => (a.role === 'GK' ? -1 : b.role === 'GK' ? 1 : a.num - b.num));
+      const dir = -G.side[t];   // toward your own goal from halfway
+      line.forEach((p, i) => { p.wx = 7.5; p.wy = L / 2 + dir * (1.4 + i * 1.15); });
+    }
+    if (G.ball) G.ball.owner = null;
+  }
+  function walkTick(G, dt) {
+    const w = G.walk, fo = w.face && G.phaseT > w.sweep;
+    /* the face-off: the two of you step out of the line together, a few paces apart, and meet at halfway */
+    if (fo && !w.fo0) { w.fo0 = true; for (const p of [G.me, G.rival]) { p.x = 11; p.y = L / 2 + (p === G.me ? -3.2 : 3.2) * G.side[0]; } }
+    for (const p of G.ps) {
+      if (p.wx == null) continue;
+      let tx = p.wx, ty = p.wy, face = -Math.PI / 2;   // facing the main stand
+      if (fo && (p === G.me || p === G.rival)) { tx = 11; ty = L / 2 + (p === G.me ? -0.75 : 0.75) * G.side[0]; face = p === G.me ? (G.side[0] > 0 ? 0 : Math.PI) : (G.side[0] > 0 ? Math.PI : 0); }
+      const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
+      if (G.phaseT < 0.05 || d < 0.05) { p.x = tx; p.y = ty; p.vx = p.vy = 0; }
+      else { const v = Math.min(d / dt, fo && (p === G.me || p === G.rival) ? 1.4 : 2.2); p.vx = dx / d * v; p.vy = dy / d * v; p.x += p.vx * dt; p.y += p.vy * dt; }
+      p.face = d > 0.3 && G.phaseT > 0.05 ? Math.atan2(dx, dy) : face;
+    }
+    if (G.phaseT >= w.T) endWalk(G);
+  }
+  function endWalk(G) {
+    if (G.phase !== 'walkout') return;
+    for (const p of G.ps) { delete p.wx; delete p.wy; p.vx = p.vy = 0; }
+    G.walk = null; G.phaseT = 0; kickoff(G, G.kickTeam);
   }
   function blank() { return { shots: 0, onT: 0, poss: 0, passes: 0, passOk: 0, corners: 0, fouls: 0, offsides: 0, saves: 0, yellows: 0, xg: 0 }; }
   const teamOf = (G, t) => G.on ? G.on[t] : G.ps.filter(p => p.t === t && !p.bench && !p.off);
@@ -807,6 +846,7 @@
       return;
     }
     if (G.phase === 'half' || G.phase === 'full') return;
+    if (G.phase === 'walkout') { walkTick(G, dt); return; }
     if (G.phase === 'restart') {
       for (const p of G.ps) if (p.act && !p.act.fire) { p.act.t += dt; if (p.act.t >= p.act.T) p.act = null; }
       restartPositions(G, dt);
@@ -1114,5 +1154,5 @@
     G.ff = was;
   }
 
-  PS.Match = { create, step, resume, result, fastForward, rating, minute, clock, FORMS, possTeam, goalY, depth, d2, aimPreview, _shot: { shotPlan, sweet, timingOf, shoot } };
+  PS.Match = { create, skipWalk: endWalk, step, resume, result, fastForward, rating, minute, clock, FORMS, possTeam, goalY, depth, d2, aimPreview, _shot: { shotPlan, sweet, timingOf, shoot } };
 })();

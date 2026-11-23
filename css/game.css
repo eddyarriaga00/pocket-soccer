@@ -282,3 +282,23 @@ p{margin:8px 0}
 .kor small{color:var(--mute)}
 .champ{font-weight:700;margin:6px 0 2px}
 .result .pos{color:#4ade80}.result .neg{color:#f87171}
+/* the walkout: the name under the camera, and a way past it */
+#walk{position:absolute;left:0;right:0;bottom:calc(28px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none}
+#walk[hidden]{display:none}
+#wcap{margin:0;padding:8px 14px;border-radius:10px;background:rgba(6,10,19,.72);font-weight:700;font-size:15px;min-height:1.2em;max-width:88%;text-align:center}
+#wcap:empty{visibility:hidden}
+#wskip{pointer-events:auto;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:9px 20px;font:inherit;font-weight:700}
+/* scenes */
+.scene{display:flex;flex-direction:column;align-items:center;text-align:center;min-height:100%;justify-content:center;gap:6px}
+.scene .spic{width:200px;height:200px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 35%,rgba(255,255,255,.14),rgba(255,255,255,.02));display:flex;align-items:center;justify-content:center;margin:10px 0}
+.scene .spic img{width:100%;height:100%;object-fit:cover}
+.scene .sic{font-size:72px}
+.scene.rival .spic{box-shadow:0 0 0 3px #f87171}
+.scene .stext{font-size:16px;line-height:1.5;max-width:34ch;color:var(--ink)}
+.scene .go{width:100%;margin-top:14px}
+.vsr{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.vsr div{background:var(--panel2);border-radius:10px;padding:10px;text-align:center}
+.vsr b{display:block;font-size:24px}.vsr span{font-size:12px;color:var(--mute)}
+.rivc{display:flex;gap:12px;align-items:center;background:var(--panel2);border-radius:12px;padding:10px;margin-top:6px}
+.rivc img{width:64px;height:64px;border-radius:50%;object-fit:cover;background:rgba(255,255,255,.06)}
+.rivc small{display:block;color:var(--mute);font-size:12px;margin-top:2px}

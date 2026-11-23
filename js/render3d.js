@@ -210,7 +210,29 @@
   }
 
   /* ------------------------------------------------------------ the camera */
+  /* the walkout: a slow pan down the line from the touchline, then (against your rival) the two of you side on */
+  function walkCam(dt) {
+    const w = G.walk, s = G.side[0];
+    let pos, look;
+    if (w.face && G.phaseT > w.sweep && G.me && G.rival) {
+      const my = (G.me.y + G.rival.y) / 2;
+      pos = new T.Vector3(X(5.2), 1.7, Z(my)); look = new T.Vector3(X(11), 1.55, Z(my));
+      w.cap = '';
+    } else {
+      const u = clamp(G.phaseT / w.sweep, 0, 1), e = u * u * (3 - 2 * u);
+      const yy = L / 2 - s * 13 + s * 26 * e;
+      pos = new T.Vector3(X(-0.5), 1.9, Z(yy - s * 1.5)); look = new T.Vector3(X(7.5), 1.35, Z(yy));
+      let best = null, bd = 9;
+      for (const p of G.ps) if (p.wx != null && Math.abs(p.wy - yy) < bd) { bd = Math.abs(p.wy - yy); best = p; }
+      w.cap = best ? `${G.teams[best.t].club.ab} · ${best.num} ${best.name}${best.me ? ' (you)' : best.rival ? ' (your rival)' : ''}` : '';
+    }
+    if (!camInit || G.phaseT < 0.06) { camPos.copy(pos); camLook.copy(look); camInit = true; }
+    const k = 1 - Math.exp(-dt * 2.4);
+    camPos.lerp(pos, k); camLook.lerp(look, k);
+    camera.position.copy(camPos); camera.lookAt(camLook);
+  }
   function cameraTick(dt) {
+    if (G.phase === 'walkout' && G.walk) return walkCam(dt);
     const b = G.ball, s = G.side[0];   // behind your team's attack
     const focus = G.mode === 'player' && G.me && !G.me.bench && !G.me.off ? G.me : null;
     const goalCam = G.phase === 'goal' && G.events.length >= 0 ? G.ps.find(p => p.goalie) : null;
@@ -266,7 +288,7 @@
     ballS.position.set(X(b.x), 0.015, Z(b.y)); ballS.scale.setScalar(clamp(1 - b.z * 0.08, 0.4, 1)); ballS.material.opacity = clamp(0.38 - b.z * 0.03, 0.1, 0.38);
     /* markers */
     const c = G.ctl && !G.ctl.bench && !G.ctl.off ? G.ctl : null;
-    ring.visible = !!c && G.phase !== 'goal'; arrow.visible = ring.visible;
+    ring.visible = !!c && G.phase !== 'goal' && G.phase !== 'walkout'; arrow.visible = ring.visible;
     if (c) { ring.position.set(X(c.x), 0.03, Z(c.y)); arrow.position.set(X(c.x), 2.45 + Math.sin(performance.now() / 220) * 0.08, Z(c.y)); arrow.rotation.y += dt * 2; }
     star.visible = false;
     refTick(dt);

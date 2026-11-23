@@ -15,7 +15,7 @@
   function boot() {
     const app = document.getElementById('app');
     app.innerHTML = `<div id="game" hidden><div id="view"></div>
-      <div id="hud"><div class="bug" id="bug"></div><canvas id="radar" width="60" height="92"></canvas><button id="pz" aria-label="Pause"><span></span><span></span></button><div id="toasts"></div><div id="banner"></div></div>
+      <div id="hud"><div class="bug" id="bug"></div><canvas id="radar" width="60" height="92"></canvas><button id="pz" aria-label="Pause"><span></span><span></span></button><div id="toasts"></div><div id="banner"></div><div id="walk" hidden><p id="wcap"></p><button id="wskip">Skip ›</button></div></div>
       <div id="ov" hidden></div></div><div id="screen"></div>`;
     scr = $('#screen'); game = $('#game');
     if (PS.R3 && PS.R3.init) { try { PS.R3.init($('#view')); } catch (e) { console.error('PocketSoccer: 3D', e); } }
@@ -88,7 +88,7 @@
       const ref = v => /^n:/.test(v) ? v : +v;
       on('.clubc', e => { const b = e.currentTarget, k = b.dataset.k, o = k === 'a' ? 'b' : 'a'; st[k] = ref(b.dataset.i); if (st.a === st.b) { const p = pool(st['l' + o]); st[o] = p.find(x => x !== st[k]); } draw(); });
       scr.querySelectorAll('.lgsel').forEach(x => x.onchange = () => { const k = x.dataset.k, lg = x.value === 'n' ? 'n' : +x.value; st['l' + k] = lg; const p = pool(lg); st[k] = p.find(i => i !== st[k === 'a' ? 'b' : 'a']); draw(); });
-      on('#play', () => playMatch({ teams: [T(st.a), T(st.b)], mode: 'team', halfLen: st.half }, G => kickoffResult(G, st)));
+      on('#play', () => playMatch({ teams: [T(st.a), T(st.b)], mode: 'team', halfLen: st.half, walkout: true }, G => kickoffResult(G, st)));
     };
     draw();
   }
@@ -138,6 +138,7 @@
         if (G.over) return finish();
       };
     }
+    $('#wskip').onclick = () => { if (M && M.G.phase === 'walkout') PS.Match.skipWalk(M.G); };
     requestAnimationFrame(loop);
   }
   function loop(now) {
@@ -163,7 +164,10 @@
     const t0 = G.teams[0].club, t1 = G.teams[1].club, min = PS.Match.minute(G), k0 = G.teams[0].kitUse || t0, k1 = G.teams[1].kitUse || t1;
     const k = [G.score[0], G.score[1], min, G.half].join();
     if (k !== bugKey) { bugKey = k; $('#bug').innerHTML = `<i style="background:${k0.c1}"></i><b>${t0.ab}</b><u>${G.score[0]}–${G.score[1]}</u><b>${t1.ab}</b><i style="background:${k1.c1}"></i><em>${PS.Match.clock(G)}</em>`; }
-    PS.Controls.show(!G.over && G.phase !== 'goal' && !(G.me && (G.me.bench || G.me.off)));
+    const walk = G.phase === 'walkout';
+    PS.Controls.show(!walk && !G.over && G.phase !== 'goal' && !(G.me && (G.me.bench || G.me.off)));
+    const wk = $('#walk'); if (wk.hidden === walk) wk.hidden = !walk;
+    if (walk) { const c = G.walk.face && G.phaseT > G.walk.sweep ? `${G.me.name} v ${G.rival.name}` : G.walk.cap; if ($('#wcap').textContent !== c) $('#wcap').textContent = c; }
   }
   function hudEvent(G, e) {
     if (e.k === 'goal') {
@@ -225,9 +229,9 @@
 
   /* ------------------------------------------------------------ new career */
   function newCareer() {
-    const st = { pos: 'ST', foot: 'Right', nation: 'United States', club: null, skin: 3, hair: 'fade', cele: 'arms', lg: 0 };
+    const st = { pos: 'ST', foot: 'Right', nation: 'United States', club: null, skin: 3, hair: 'fade', cele: 'arms', lg: 0, path: 'academy' };
     /* the four smallest clubs of the league you choose: everybody starts at the bottom */
-    const weakOf = lg => D.CLUBS.map((c, i) => ({ c, i })).filter(x => x.c.lg === lg).sort((a, b) => a.c.ovr - b.c.ovr).slice(0, 4);
+    const weakOf = lg => { const l = D.CLUBS.map((c, i) => ({ c, i })).filter(x => x.c.lg === lg).sort((a, b) => a.c.ovr - b.c.ovr); return st.path === 'wonderkid' ? l.slice(-3).reverse() : l.slice(0, 4); };
     let weak = weakOf(st.lg);
     st.club = weak[0].i;
     const clubList = () => weak.map(({ c, i }) => `<button class="clubc ${i === st.club ? 'on' : ''}" data-i="${i}">${crest(c)}<span><b>${c.name}</b><small>${c.ground} · rated ${c.ovr}</small></span></button>`).join('');
@@ -242,21 +246,28 @@
       <div class="lbl">Skin tone</div><div class="swatch" data-k="skin">${PS.SKIN.map((c, i) => `<button data-v="${i}" class="${i === st.skin ? 'on' : ''}" style="background:${c}" aria-label="Skin tone ${i + 1}"></button>`).join('')}</div>
       <div class="lbl">Hair</div>${seg('hair', [['fade', 'Fade'], ['short', 'Short'], ['curly', 'Curly'], ['afro', 'Afro'], ['buzz', 'Buzz'], ['locs', 'Locs'], ['long', 'Long'], ['bald', 'Bald']], st.hair)}
       <div class="lbl">Goal celebration</div>${seg('cele', [['arms', 'Arms up'], ['knee', 'Knee slide'], ['point', 'Point up'], ['plane', 'Airplane'], ['dance', 'Dance']], st.cele)}
+      <div class="lbl">Your road in</div>${seg('path', [['academy', 'Academy'], ['rebuilt', 'Released'], ['wonderkid', 'Wonderkid']], st.path)}
+      <p class="sub" id="pathd"></p>
       <div class="lbl">Where you start</div><select id="lgp">${D.LEAGUES.map(l => `<option value="${l.id}">${l.name} · ${l.country}</option>`).join('')}</select>
       <div class="lbl">Your first club</div>
       <div class="clubs" id="clubs">${clubList()}</div>
       <button class="go" id="sign">Sign your first contract</button></div>`);
     const desc = { ST: 'Score goals. Runs in behind, finishing, headers, penalties.', W: 'Beat your full-back, cross, cut inside and shoot.', CM: 'Run the game: passing, through balls, shots from range, set pieces.' };
-    const upd = () => { $('#posd').textContent = desc[st.pos]; };
+    const pdesc = { academy: 'Came up through the academy of a small club. Bench to start, a rival from your year at the club next door.',
+      rebuilt: 'Released by a big club at sixteen, rebuilt at a small one. Hungrier: you start more, with a little more XP, and the big club kept your rival.',
+      wonderkid: 'A big club paid a fortune for you. Higher ceiling, fewer minutes, and a rival who plays every week somewhere smaller.' };
+    let lastPath = st.path;
+    const upd = () => { $('#posd').textContent = desc[st.pos]; $('#pathd').textContent = pdesc[st.path]; if (st.path !== lastPath) { lastPath = st.path; weak = weakOf(st.lg); st.club = weak[0].i; $('#clubs').innerHTML = clubList(); wireClubs && wireClubs(); } };
+    let wireClubs = null;
     upd(); segs(st, upd);
     scr.querySelectorAll('.swatch button').forEach(b => b.addEventListener('click', () => { st.skin = +b.dataset.v; scr.querySelectorAll('.swatch button').forEach(x => x.classList.toggle('on', x === b)); }));
-    const wireClubs = () => on('.clubc', e => { const b = e.currentTarget; st.club = +b.dataset.i; scr.querySelectorAll('.clubc').forEach(x => x.classList.toggle('on', x === b)); });
+    wireClubs = () => on('.clubc', e => { const b = e.currentTarget; st.club = +b.dataset.i; scr.querySelectorAll('.clubc').forEach(x => x.classList.toggle('on', x === b)); });
     wireClubs();
     $('#lgp').onchange = () => { st.lg = +$('#lgp').value; weak = weakOf(st.lg); st.club = weak[0].i; $('#clubs').innerHTML = clubList(); wireClubs(); };
     on('#bk', menu);
     on('#sign', () => {
       const name = $('#nm').value.trim() || 'Alex Rivera';
-      K.create({ name, nation: $('#nat').value, pos: st.pos, foot: st.foot, club: st.club, skin: st.skin, look: { hair: st.hair, hairColor: '#17110d', face: 0, cele: st.cele } });
+      K.create({ name, path: st.path, nation: $('#nat').value, pos: st.pos, foot: st.foot, club: st.club, skin: st.skin, look: { hair: st.hair, hairColor: '#17110d', face: 0, cele: st.cele } });
       tab = 'home'; hub();
     });
   }
@@ -277,6 +288,7 @@
   PS.ui_head = headOf;
   function hub() {
     const c = K.C; if (!c) return menu();
+    if (K.scenes().length) return sceneView();
     if (c.summary) return seasonEnd();
     const tabs = [['home', 'Home'], ['social', 'Social'], ['table', 'Tables'], ['skills', 'Skills' + (affordable() ? ' •' : '')], ['career', 'Career']];
     const body = tab === 'home' ? homeTab() : tab === 'social' ? `<div class="soc">${PS.social.tab(socTab)}</div>` : tab === 'table' ? tableTab() : tab === 'skills' ? skillsTab() : careerTab();
@@ -351,6 +363,7 @@
     const c = K.C;
     return `<div class="mini"><div><b>${c.totals.apps}</b><span>apps</span></div><div><b>${c.totals.goals}</b><span>goals</span></div><div><b>${c.totals.assists}</b><span>assists</span></div><div><b>${c.trophies.length}</b><span>honours</span></div></div>
       ${c.intl && c.intl.ever ? `<div class="mini"><div><b>${c.intl.caps}</b><span>caps</span></div><div><b>${c.intl.goals}</b><span>for ${esc(c.nation)}</span></div></div>` : ''}
+      ${(r => r ? `<div class="lbl">Your rival</div><div class="rivc">${(h => h ? `<img alt="" src="${h}">` : '')(headOf({ name: r.short, num: r.num, skin: r.skin, look: r.look }, K.team(r.club), 120))}<div><b>${esc(r.name)}</b><small>${K.team(r.club).name} · rated ${r.ovr}</small><small>${r.tot.g} goals in ${r.tot.apps} games · you v him: won ${r.h2h[0]}, drawn ${r.h2h[1]}, lost ${r.h2h[2]}</small></div></div>` : '')(K.rival())}
       <div class="lbl">Seasons</div>
       ${c.history.length ? `<table class="tbl"><thead><tr><th class="l">Season</th><th class="l">Club</th><th>Ap</th><th>G</th><th>A</th><th>Avg</th></tr></thead><tbody>${c.history.map(h => `<tr><td class="l">${h.y}/${String(h.y + 1).slice(2)}</td><td class="l">${D.CLUBS[h.club].ab} <small>${D.LEAGUES[h.lg ?? 0].ab}</small> (${K.ord(h.pos)})</td><td>${h.apps}</td><td>${h.goals}</td><td>${h.assists}</td><td>${h.avg.toFixed(2)}</td></tr>`).join('')}</tbody></table>` : '<p class="mute">Your first season is under way.</p>'}
       <div class="lbl">Honours</div>
@@ -363,6 +376,7 @@
     const us = K.club(f.us), them = K.club(f.opp);
     const plan = PS.sim.plan({ us, them, home: f.home, role: K.role(f), pos: c.pos, usSquad: K.squad(f.us), themSquad: K.squad(f.opp) });
     return { f, o: { teams: [us, them], names: [K.squad(f.us), K.squad(f.opp)], home: f.home ? 0 : 1, mode: 'player', halfLen: S.half,
+      walkout: true, rival: K.rivalIn(f),
       me: { name: c.name, num: c.num, pos: c.pos, a: c.a, skin: c.skin ?? 3, look: c.look || null, foot: c.foot, cele: (c.look && c.look.cele) || 'arms' }, on: plan.on, off: plan.off } };
   }
   function matchDay(sim) {
@@ -415,6 +429,19 @@
     scr.querySelectorAll('.ans').forEach(b => b.onclick = () => { PS.social.answer(ans[+b.dataset.k]); press(ctx, i + 1, qs); });
   }
 
+  /* ------------------------------------------------------------ scenes (the cutscenes between matches) */
+  function sceneView(i = 0) {
+    const sc = K.scenes()[0]; if (!sc) return hub();
+    const pn = sc.panels[i], c = K.C, rv = K.rival();
+    const pic = pn.who === 'me' ? headOf({ name: c.name, num: c.num, skin: c.skin ?? 3, look: c.look }, K.team(pn.kit ?? c.club), 260)
+      : pn.who === 'rival' && rv ? headOf({ name: rv.short, num: rv.num, skin: rv.skin, look: rv.look }, K.team(rv.club), 260) : null;
+    show(`<div class="page scene ${pn.who}"><div class="lbl">${sc.panels.length > 1 ? `${i + 1} of ${sc.panels.length}` : '&nbsp;'}</div>
+      <div class="spic">${pic ? `<img alt="" src="${pic}">` : `<span class="sic">${pn.who === 'coach' ? '📋' : '★'}</span>`}</div>
+      <h2>${esc(pn.title)}</h2><p class="stext">${esc(pn.text)}</p>
+      <button class="go" id="snext">${i + 1 < sc.panels.length ? 'Next' : 'Continue'}</button></div>`);
+    on('#snext', () => { if (i + 1 < sc.panels.length) sceneView(i + 1); else { K.sceneDone(); hub(); } });
+  }
+
   /* ------------------------------------------------------------ season end */
   function seasonEnd() {
     const c = K.C, s = c.summary;
@@ -423,6 +450,7 @@
       <div class="lbl">Season ${c.season} · ${c.year}/${String(c.year + 1).slice(2)}</div><h2>Season review</h2>
       <div class="mini"><div><b>${K.ord(s.pos)}</b><span>${K.club().ab}</span></div><div><b>${s.ss.goals}</b><span>goals</span></div><div><b>${s.ss.assists}</b><span>assists</span></div><div><b>${s.avg ? s.avg.toFixed(2) : '–'}</b><span>avg rating</span></div></div>
       ${s.awards.length ? `<ul class="news">${s.awards.map(a => `<li>🏆 ${a}</li>`).join('')}</ul>` : ''}
+      ${s.rival ? `<div class="lbl">You v your rival</div><div class="vsr"><div><b>${s.ss.goals}</b><span>${esc(c.name.split(' ').pop())} · ${s.ss.apps} apps</span></div><div><b>${s.rival.g}</b><span>${esc(s.rival.name.split(' ').pop())} · ${s.rival.apps} apps · ${K.team(s.rival.club).ab}</span></div></div>` : ''}
       <div class="lbl">Transfer window</div>
       ${c.offers && c.offers.length ? `<p class="mute">Your agent has offers. Pick one or stay.</p>${c.offers.map(o => `<button class="clubc" data-i="${o.i}">${crest(D.CLUBS[o.i])}<span><b>${D.CLUBS[o.i].name}</b><small>${D.LEAGUES[D.CLUBS[o.i].lg].name} · rated ${D.CLUBS[o.i].ovr} · ${o.wage.toLocaleString()} a week</small></span></button>`).join('')}` : '<p class="mute">No offers this summer. Another season to prove yourself.</p>'}
       <button class="go" id="stay">Stay at ${K.club().name}</button></div>`);

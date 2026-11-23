@@ -129,6 +129,15 @@
     if (!so.offer && so.hot >= 2 && so.deals.length < 2 && c.fans >= 3000) { const left = BRANDS.filter(b => !so.deals.some(d => d.name === b[0])), b = any(left); so.offer = { name: b[0], kind: b[1], col: b[2], line: b[3], age: 0, sign: 150 }; }
     /* the reaction */
     const posts = reaction(ctx);
+    /* your rival has something to say after you meet, and now and then after a big night of yours */
+    const rv = K().rival && K().rival();
+    if (rv && (ctx.oppIdx === rv.club || (ctx.played && r >= 8.3 && Math.random() < 0.35))) {
+      const rn = rv.name.split(' '), rh = '@' + (rn[0][0] + rn[rn.length - 1]).toLowerCase().replace(/[^a-z]/g, '');
+      const met = ctx.oppIdx === rv.club, lost = ctx.score[0] < ctx.score[1];
+      const t = met ? (lost ? any(['Bragging rights stay with me. 🤫', 'Same result as the academy days.', 'Good game. Better team won.']) : won ? any(['Enjoy it. See you in the return game.', 'Not over. Never over.', 'Fair play to them today.']) : any(['Nothing between us. As usual.', 'Same again next time then.']))
+        : any(['Decent. I have done it in bigger games.', 'Nice. Now do it twice.', 'Everybody is excited about one good night. 😴']);
+      posts.unshift(post(rh, t, {}, { name: rv.name, ver: true, k: 0.03, hot: met, club: K().team(rv.club) }));
+    }
     c.feed = posts.concat(c.feed).slice(0, 40);
     so.lastMd = mdKey();
     return { dFans: c.fans - was.fans, dHype: so.hype - was.hype, posts };
