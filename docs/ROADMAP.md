@@ -10,6 +10,7 @@ Update this file after every item.
 - **Rollback points:** before every push to `main`, add a line below with the commit `main` is on and what the push
   brings. To go back: `git revert --no-edit <commit>..main`, then push `main`.
 - **Rollback points** (newest first; the commit is the last good `main` before that change):
+  - `81354af`, before the ball at the feet: touches, close control, first touch, half-turn, turning, shielding (2026-11-23).
   - `8dbdbd2`, before the passing work: pace from the hold, lob swipe, open-man assist, one-twos, chest control, computer shot tuning (2026-11-23).
   - `d6d6175`, before the look builder (2026-11-23).
   - `88a4296`, before the story: the road in, a rival, cutscenes, the walkout and the face-off (2026-11-23).
@@ -91,6 +92,12 @@ Update this file after every item.
 - [x] The assist prefers an open man with a clear lane among those the stick points at
 - [x] One-twos: pass, then Through (Run or Call in a career) while it travels; he runs and gets it back first time
 - [x] Receivers chest and thigh down lofted passes; computer passing 79-80% (target 78-85%)
+
+### The ball at the feet (2026-11-23)
+- [x] Dribbling as touches: pushed ahead along the line he faced, free between touches (0.6-1.9 m at a sprint), further and less often at a sprint and for a poor dribbler; a stride lost on each touch
+- [x] Close control with the stick let go (under the sole); a sharp turn costs a touch and a moment; turning speed from Pace and Dribbling
+- [x] First touch: hard or bouncing balls and poor dribblers let it get away a metre or two; receiving on the half-turn with the stick pointing on
+- [x] Tackles win 37% between touches against 27% at the feet (harness); a strong man shields from behind
 
 ### M3 The world
 - [x] Seven leagues in seven countries (England, Spain, Italy, Germany, France, Brazil, USA), 72 invented clubs, all

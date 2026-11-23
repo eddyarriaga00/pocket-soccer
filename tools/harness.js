@@ -13,7 +13,7 @@
   }
   const PS = window.PS;
   function matches(n = 10, half = 180) {
-    const C = PS.data.CLUBS.filter(c => !c.lg), tot = { goals: 0, shots: 0, onT: 0, passes: 0, passOk: 0, corners: 0, fouls: 0, offsides: 0, saves: 0 }, lines = [];
+    const tk = { gap: [0, 0], feet: [0, 0] }, C = PS.data.CLUBS.filter(c => !c.lg), tot = { goals: 0, shots: 0, onT: 0, passes: 0, passOk: 0, corners: 0, fouls: 0, offsides: 0, saves: 0 }, lines = [];
     for (let i = 0; i < n; i++) {
       const a = C[i % C.length], b = C[(i * 5 + 3) % C.length];
       const G = PS.Match.create({ teams: [a, b], mode: 'team', halfLen: half, auto: true });
@@ -22,9 +22,13 @@
       const s = G.stats; tot.goals += G.score[0] + G.score[1];
       for (const k of ['shots', 'onT', 'passes', 'passOk', 'corners', 'fouls', 'offsides', 'saves']) tot[k] += s[0][k] + s[1][k];
       lines.push(`${a.ab}(${a.ovr}) ${G.score[0]}-${G.score[1]} ${b.ab}(${b.ovr})`);
+      if (G.tkLog) for (const k of ['gap', 'feet']) { tk[k][0] += G.tkLog[k][0]; tk[k][1] += G.tkLog[k][1]; }
     }
     for (const k in tot) tot[k] = +(tot[k] / n).toFixed(1);
     tot.passPct = Math.round(tot.passOk / tot.passes * 100);
+    /* tackles on a ball between touches against one at his feet: the gap should be the better moment */
+    tot.tackleGap = tk.gap[1] ? `${tk.gap[0]}/${tk.gap[1]} ${Math.round(tk.gap[0] / tk.gap[1] * 100)}%` : '-';
+    tot.tackleFeet = tk.feet[1] ? `${tk.feet[0]}/${tk.feet[1]} ${Math.round(tk.feet[0] / tk.feet[1] * 100)}%` : '-';
     return { perMatch: tot, results: lines };
   }
   function season() {

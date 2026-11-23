@@ -676,8 +676,11 @@
     if (p.cd > 0 || !c) return;
     p.cd = 0.9; p.act = { k: 'kick', t: 0, T: 0.3, foot: 'R', p: 0.3 };
     const behind = ((c.x - p.x) * Math.sin(c.face) + (c.y - p.y) * Math.cos(c.face)) > 0.3;   // coming from behind him
-    const pr = clamp(0.42 * Math.pow((p.a.def + 10) / (c.a.dri + 10), 1.6) * (lunge ? 1.25 : 1) * (c.sprint ? 0.85 : 1) * (behind ? 0.6 : 1), 0.08, 0.88);
-    if (d2(p, c) < 1.7 && Math.random() < pr) { win(G, p, c); p.st.tk++; return; }
+    const lo = c === G.ball.owner ? (c.loose || 0) : 0, gap = lo > 0.8 ? 1.5 : lo > 0.45 ? 1.2 : lo < 0.12 ? 0.82 : 1;
+    const pr = clamp(0.42 * Math.pow((p.a.def + 10) / (c.a.dri + 10), 1.6) * (lunge ? 1.25 : 1) * (c.sprint ? 0.85 : 1) * (behind ? 0.78 - c.a.phy * 0.003 : 1) * gap, 0.08, 0.9);
+    const ok = d2(p, c) < 1.7 && Math.random() < pr;
+    const tl = G.tkLog || (G.tkLog = { gap: [0, 0], feet: [0, 0] }), slot = lo > 0.45 ? 'gap' : 'feet'; tl[slot][1]++; if (ok) tl[slot][0]++;
+    if (ok) { win(G, p, c); p.st.tk++; return; }
     if (Math.random() < (behind ? 0.3 : 0.08)) foul(G, p, c);
   }
   function slide(G, p, dx, dy) {
@@ -745,6 +748,7 @@
       if (d2(p, c) < 1.4 && p.cd <= 0 && Math.random() < dt * 2) tackle(G, p, c);
     }
     const has = b.owner === p, near = !b.owner && d2(b, p) < 2.0 && b.z < 2.2;
+    p.close = has && !steering;   // stick let go: the ball under his sole
     const myTeamHas = possTeam(G) === p.t;
     const dir = steering ? { x: st.x / st.m, y: st.y / st.m } : { x: Math.sin(p.face), y: Math.cos(p.face) };
     /* restarts: the taker waits for the user */
@@ -941,6 +945,8 @@
       let dx = p.tx - p.x, dy = p.ty - p.y; const dl = hyp(dx, dy);
       let top = Math.min(p.want || 0, maxSpd(p) * (G.ball.owner === p ? 0.86 + p.a.dri * 0.0012 : 1)) * (p.stun > 0 ? 0.4 : 1) * (kickWind ? 0.35 : 1);
       if (p.sprint && p.ctl) top = Math.min(maxSpd(p) * (G.ball.owner === p ? 0.95 : 1), Math.max(top, maxSpd(p) * 0.6));
+      if (p.turnSlow > 0) { p.turnSlow -= dt; top *= 0.55; }
+      if (G.ball.owner === p && p.tch) top *= 0.95 + 0.05 * Math.cos(Math.PI * 2 * p.tch.u);   // a touch costs a stride
       const want = dl < 0.12 ? 0 : Math.min(top, dl * 2.6);
       const wx = dl ? dx / dl * want : 0, wy = dl ? dy / dl * want : 0;
       const acc = (p.stun > 0 ? 3 : 7.5 + p.a.pac * 0.03) * dt;
@@ -952,7 +958,7 @@
       let fa = null;
       if (v > 0.8) fa = Math.atan2(p.vx, p.vy);
       else if (G.ball.owner !== p) fa = Math.atan2(G.ball.x - p.x, G.ball.y - p.y);
-      if (fa !== null && !(p.act && p.act.k === 'kick')) { let df = fa - p.face; while (df > Math.PI) df -= Math.PI * 2; while (df < -Math.PI) df += Math.PI * 2; p.face += df * Math.min(1, dt * (v > 0.8 ? 9 : 4)); }
+      if (fa !== null && !(p.act && p.act.k === 'kick')) { let df = fa - p.face; while (df > Math.PI) df -= Math.PI * 2; while (df < -Math.PI) df += Math.PI * 2; p.face += df * Math.min(1, dt * (v > 0.8 ? 9 : 4) * (0.72 + (p.a.pac + p.a.dri) / 400)); }
       if (p.sprint && v > 6) p.stamina = Math.max(0, (p.stamina ?? 1) - dt * 0.02); else p.stamina = Math.min(1, (p.stamina ?? 1) + dt * 0.01);
     }
     /* bodies keep apart */
@@ -977,9 +983,24 @@
       const o = b.owner;
       if (o.act && o.act.k === 'throw') return;
       if (o.caught) { b.x = o.x + Math.sin(o.face) * 0.35; b.y = o.y + Math.cos(o.face) * 0.35; b.z = 1.0; b.vx = b.vy = b.vz = 0; return; }
-      /* at his feet: a touch ahead in the direction he runs, the further the faster */
-      const v = hyp(o.vx, o.vy), r = 0.42 + Math.min(0.9, v * 0.09) + 0.1 * Math.max(0, Math.sin(o.phaseB = (o.phaseB || 0) + v * dt * 1.6));
-      const tx = o.x + Math.sin(o.face) * r, ty = o.y + Math.cos(o.face) * r;
+      /* the ball at his feet, as touches: each one pushes it ahead along the way he faced when he struck it, it runs
+         free, and he catches up for the next. Further and less often at a sprint and for a poor dribbler; with the
+         stick let go (or nearly stopped) it stays under his sole. A sharp turn costs a touch and a moment. */
+      const v = hyp(o.vx, o.vy), T_ = o.tch || (o.tch = { u: 0, T: 0.4, push: 0, dir: o.face });
+      const close = (o.close && o === G.ctl && G.userOn) || v < 1.2;
+      let turn = T_.dir - o.face; while (turn > Math.PI) turn -= Math.PI * 2; while (turn < -Math.PI) turn += Math.PI * 2;
+      if (Math.abs(turn) > 1.0 && T_.u > 0.3 && T_.u < 1) { T_.u = 1; o.turnSlow = 0.22 + (1 - o.a.dri / 100) * 0.2; }
+      T_.u += dt / T_.T;
+      if (T_.u >= 1) {
+        T_.u = T_.u % 1; T_.dir = o.face;
+        const sp = Math.min(1, v / maxSpd(o));
+        T_.push = close ? 0 : (0.3 + sp * sp * 1.7) * (1.3 - o.a.dri * 0.006) * (o.sprint ? 1.3 : 1);
+        T_.T = clamp(0.3 + sp * 0.2 + (1 - o.a.dri / 100) * 0.14, 0.3, 0.62);
+      }
+      const r = 0.38 + T_.push * Math.sin(Math.PI * Math.min(1, T_.u));
+      o.loose = r - 0.38;
+      const dirA = close ? o.face : T_.dir;
+      const tx = o.x + Math.sin(dirA) * r, ty = o.y + Math.cos(dirA) * r;
       b.vx = (tx - b.x) / Math.max(dt, 1e-3) * 0.5; b.vy = (ty - b.y) / Math.max(dt, 1e-3) * 0.5;
       b.x = lerp(b.x, tx, Math.min(1, dt * 14)); b.y = lerp(b.y, ty, Math.min(1, dt * 14)); b.z = R; b.vz = 0; b.spin = 0;
       b.roll += v * dt / R;
@@ -1103,12 +1124,25 @@
         if (!p.rollOk) continue;
         p.st.it++;
       }
+      if (p.noCatch > G.t) continue;
       const rel = hyp(b.vx - p.vx, b.vy - p.vy), ctrl = 11 + p.a.dri * 0.12;
       if (rel < ctrl) {
         if (G.offside.has(p)) { G.stats[p.t].offsides++; G.events.push({ k: 'offside' }); return stop(G, 'fk', opp(p.t), p.x, p.y, `Offside: ${p.name}.`); }
         G.offside.clear();
         if (G.pass && G.pass.from.t === p.t && G.pass.from !== p) { G.stats[p.t].passOk++; G.pass.from.st.pc++; }
+        /* the first touch: a hard or bouncing ball and a poor touch let it get away from him by a metre or two */
+        const heavy = p.role !== 'GK' && Math.random() < clamp((rel - 7.5) / ctrl, 0, 1) * (1.25 - p.a.dri / 100) * (b.z > 0.35 ? 1.4 : 1) * 0.9;
+        if (heavy) {
+          const a = p.face + rnd(-0.7, 0.7), v = 2.6 + rel * 0.16;
+          b.vx = Math.sin(a) * v + p.vx * 0.4; b.vy = Math.cos(a) * v + p.vy * 0.4; b.vz = 0; b.z = Math.min(b.z, R); b.last = p; G.lastTouch = p;
+          p.noCatch = G.t + 0.3; G.pass = null; G.shot = null; G.pendingTo = null; G.events.push({ k: 'heavy' });
+          return;
+        }
         b.owner = p; p.hold = 0; p.caught = p.role === 'GK' ? false : undefined; G.lastTouch = p; G.pass = null; G.shot = null; G.pendingTo = null;
+        /* receiving on the half-turn: the stick pointing on (or, for the computer, space in front) opens him up as it arrives */
+        if (p.ctl && G.userOn && p === G.ctl) { const st = stickWorld(G); if (st.m > 0.3) p.face = Math.atan2(st.x, st.y); }
+        else if (p.role !== 'GK' && teamOf(G, opp(p.t)).every(o => d2(o, p) > 3.5)) { const gy = goalY(G, p.t); p.face = Math.atan2(CX - p.x, gy - p.y); }
+        p.tch = { u: 0.55, T: 0.4, push: 0.25, dir: p.face };
         G.events.push({ k: 'touch' });
         return;
       }
