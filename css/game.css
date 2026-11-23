@@ -302,3 +302,15 @@ p{margin:8px 0}
 .rivc{display:flex;gap:12px;align-items:center;background:var(--panel2);border-radius:12px;padding:10px;margin-top:6px}
 .rivc img{width:64px;height:64px;border-radius:50%;object-fit:cover;background:rgba(255,255,255,.06)}
 .rivc small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
+/* the look builder */
+.lookb{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:8px 12px;color:var(--ink);font:inherit;margin-top:6px}
+.lookb img,.lookb .sic{width:56px;height:56px;border-radius:50%;object-fit:cover;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:24px;flex:none}
+.lookb span{flex:1}.lookb small{display:block;color:var(--mute);font-size:12px;margin-top:2px}.lookb i{font-style:normal;font-size:22px;color:var(--mute)}
+.builder .stage{position:relative;height:300px;margin:4px 0 10px;border-radius:16px;background:radial-gradient(ellipse at 50% 40%,rgba(255,255,255,.12),rgba(255,255,255,.02) 70%);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.builder .stage .full{height:100%;width:auto}
+.builder .stage .hd{position:absolute;right:10px;top:10px;width:72px;height:72px;border-radius:50%;background:rgba(0,0,0,.25)}
+.builder .turn{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:rgba(6,10,19,.55);color:#fff;font-size:24px;line-height:1}
+.builder .turn.l{left:10px}.builder .turn.r{right:10px}
+.seg.wrap{flex-wrap:wrap}
+.seg.wrap button{flex:1 0 22%;min-width:0}
+.builder .go{margin-top:16px}

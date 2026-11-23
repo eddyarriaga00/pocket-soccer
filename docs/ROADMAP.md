@@ -10,6 +10,7 @@ Update this file after every item.
 - **Rollback points:** before every push to `main`, add a line below with the commit `main` is on and what the push
   brings. To go back: `git revert --no-edit <commit>..main`, then push `main`.
 - **Rollback points** (newest first; the commit is the last good `main` before that change):
+  - `d6d6175`, before the look builder (2026-11-23).
   - `88a4296`, before the story: the road in, a rival, cutscenes, the walkout and the face-off (2026-11-23).
   - `60d65a1`, before the world: seven leagues, domestic cups, the Champions Cup, national teams and tournaments (2026-11-23).
   - `dfc55bc`, before the shooting rebuild: shot types, timed finishing, aim reticle, new keeper rules (2026-11-21).
@@ -81,6 +82,7 @@ Update this file after every item.
 - [x] A rival from your academy year at your position: in the other shirt when your clubs meet, in the scorers' race, moves clubs as he grows, posts about you, head to head on the Career tab and in the season review
 - [x] Cutscenes between matches: the road in, the first call-up, a transfer, a trophy, a title
 - [x] The walkout: both sides in a line at halfway, the camera down the line with names, then you and your rival face to face; skippable
+- [x] The look builder: hair (16 styles), colour, headband, skin, face, beard, boot colour, sleeves, build, celebration; a turning preview; from New career and the Career tab
 
 ### M3 The world
 - [x] Seven leagues in seven countries (England, Spain, Italy, Germany, France, Brazil, USA), 72 invented clubs, all

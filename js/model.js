@@ -207,12 +207,14 @@
   function player(d, kit) {
     const A = window.THREE_ADDONS;
     const root = new T.Group(), body = A.SkeletonUtils.clone(TPL.scene);
-    const sc = (d.ht || 1.82) / TPL.Hs;
-    body.scale.set(sc * 1.04, sc, sc * 1.04);
+    const lk = d.look || autoLook(d);
+    /* the build (the look builder's slim, regular, strong) widens the body as in PocketBasketball */
+    const sc = (d.ht || 1.82) / TPL.Hs, wide = { slim: 0.97, regular: 1.04, strong: 1.12 }[lk.build] || 1.04;
+    body.scale.set(sc * wide, sc, sc * wide);
     root.add(body);
     const skin = SKIN[d.skin == null ? 3 : d.skin] || SKIN[3];
     const gk = !!d.gk;
-    const mat = kitMaterial({ skin, jersey: kit.c1, shorts: kit.shorts || kit.c1, sock: kit.sock || kit.c1, boot: d.boot || kit.boot || '#151515', trim: kit.trim || kit.c2, alt: kit.alt || kit.c2, pat: kit.pat || 0, sl: gk ? 1 : 0 });
+    const mat = kitMaterial({ skin, jersey: kit.c1, shorts: kit.shorts || kit.c1, sock: kit.sock || kit.c1, boot: lk.boot || d.boot || kit.boot || '#151515', trim: kit.trim || kit.c2, alt: kit.alt || kit.c2, pat: kit.pat || 0, sl: gk || lk.sleeves === 'long' ? 1 : 0 });
     const bones = {};
     let bodyMesh = null;
     body.traverse(o => { if (o.isSkinnedMesh) { o.frustumCulled = false; if (!bodyMesh) bodyMesh = o; else o.visible = false; } if (o.isBone) bones[bk(o.name)] = o; });
@@ -220,7 +222,7 @@
     sb.position.copy(bodyMesh.position); sb.quaternion.copy(bodyMesh.quaternion); sb.scale.copy(bodyMesh.scale); sb.bind(bodyMesh.skeleton, bodyMesh.bindMatrix);
     bodyMesh.visible = false;
     /* hair, beard and face: the parts this player's look asks for, in his colors */
-    const lk = d.look || autoLook(d), F0 = TPL.face, tv = F0.userData.tv;
+    const F0 = TPL.face, tv = F0.userData.tv;
     const HV = { short: 1, buzz: 2, high: 3, afro: 4, twists: 5, fade: 6, cornrows: 7, bun: 8, mohawk: 9, locs: 10, curly: 14, ponytail: 15, long: 22, spiky: 34, braids: 35 }, BV = { stubble: 11, goatee: 12, full: 13, mustache: 32, chinstrap: 33 };
     const fN = +lk.face || 0, eyeV = fN < 5 ? 16 + fN : 31 + fN, mouthV = fN < 5 ? 26 + fN : 41 + fN;
     const base = [HV[lk.hair] || 0, lk.hair === 'cornrows' ? 21 : 0, BV[lk.beard] || 0, mouthV, lk.band ? 24 : 0].filter(Boolean);
@@ -397,7 +399,7 @@
   function portrait(d, kit, size, o) {
     if (!TPL) return null;
     o = o || {};
-    const key = [d.name, d.num, d.skin, JSON.stringify(d.look || ''), kit.c1, kit.c2, kit.pat, size, o.body ? 1 : 0, o.back ? 1 : 0, o.mood || ''].join('|');
+    const key = [d.name, d.num, d.skin, JSON.stringify(d.look || ''), kit.c1, kit.c2, kit.pat, size, o.body ? 1 : 0, o.back ? 1 : 0, o.mood || '', o.yaw || 0].join('|');
     if (PICS.has(key)) return PICS.get(key);
     try {
       const Wd = size || 160, Hh = o.body ? Math.round(Wd * 1.6) : Wd;
@@ -408,6 +410,7 @@
       const rim = new T.DirectionalLight(0xffffff, 0.35); rim.position.set(-3, 2, o.back ? 5 : -5); sc.add(rim);
       const m = player(d, kit); sc.add(m.root);
       if (o.mood && m.face && m.face.userData.sets[o.mood]) m.face.geometry.setIndex(m.face.userData.sets[o.mood]);
+      if (o.yaw) m.root.rotation.y = o.yaw;
       m.act.Idle_Loop.time = 0.5; m.mixer.update(0.3); m.root.updateMatrixWorld(true);
       const H = d.ht || 1.82, c = new T.PerspectiveCamera(28, Wd / Hh, 0.05, 40);
       if (o.body) { const z = o.back ? -1 : 1; c.position.set(0.45 * z, H * 0.55, 4.6 * z); c.lookAt(0, H * 0.5, 0); }

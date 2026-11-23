@@ -228,27 +228,32 @@
   }
 
   /* ------------------------------------------------------------ new career */
-  function newCareer() {
-    const st = { pos: 'ST', foot: 'Right', nation: 'United States', club: null, skin: 3, hair: 'fade', cele: 'arms', lg: 0, path: 'academy' };
-    /* the four smallest clubs of the league you choose: everybody starts at the bottom */
+  /* the state of the new-career form survives a trip to the look builder */
+  let NC = null;
+  function newCareer(keep) {
+    if (!keep || !NC) NC = { name: '', pos: 'ST', foot: 'Right', nation: 'United States', club: null, skin: 3, lg: 0, path: 'academy',
+      look: { hair: 'fade', hairColor: '#17110d', beard: null, face: 0, band: null, boot: '#151515', sleeves: 'short', build: 'regular', cele: 'arms' } };
+    const st = NC;
+    /* the four smallest clubs of the league you choose (the three biggest for a wonderkid) */
     const weakOf = lg => { const l = D.CLUBS.map((c, i) => ({ c, i })).filter(x => x.c.lg === lg).sort((a, b) => a.c.ovr - b.c.ovr); return st.path === 'wonderkid' ? l.slice(-3).reverse() : l.slice(0, 4); };
     let weak = weakOf(st.lg);
-    st.club = weak[0].i;
+    if (!weak.some(w => w.i === st.club)) st.club = weak[0].i;
     const clubList = () => weak.map(({ c, i }) => `<button class="clubc ${i === st.club ? 'on' : ''}" data-i="${i}">${crest(c)}<span><b>${c.name}</b><small>${c.ground} · rated ${c.ovr}</small></span></button>`).join('');
+    const me = () => ({ name: st.name || 'You', num: st.pos === 'ST' ? 9 : st.pos === 'W' ? 11 : 8, skin: st.skin, look: st.look });
+    const pic = headOf(me(), D.CLUBS[st.club], 160);
     show(`<div class="page">
       <button class="back" id="bk">‹ Menu</button>
       <h2>New career</h2>
-      <label>Name<input id="nm" maxlength="22" placeholder="First and last name" autocomplete="off"></label>
+      <label>Name<input id="nm" maxlength="22" placeholder="First and last name" autocomplete="off" value="${esc(st.name)}"></label>
       <label>Nation<select id="nat">${D.NATIONS.map(n => `<option${n === st.nation ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
       <div class="lbl">Position</div>${seg('pos', [['ST', 'Striker'], ['W', 'Winger'], ['CM', 'Midfielder']], st.pos)}
       <p class="sub" id="posd"></p>
       <div class="lbl">Stronger foot</div>${seg('foot', [['Left', 'Left'], ['Right', 'Right']], st.foot)}
-      <div class="lbl">Skin tone</div><div class="swatch" data-k="skin">${PS.SKIN.map((c, i) => `<button data-v="${i}" class="${i === st.skin ? 'on' : ''}" style="background:${c}" aria-label="Skin tone ${i + 1}"></button>`).join('')}</div>
-      <div class="lbl">Hair</div>${seg('hair', [['fade', 'Fade'], ['short', 'Short'], ['curly', 'Curly'], ['afro', 'Afro'], ['buzz', 'Buzz'], ['locs', 'Locs'], ['long', 'Long'], ['bald', 'Bald']], st.hair)}
-      <div class="lbl">Goal celebration</div>${seg('cele', [['arms', 'Arms up'], ['knee', 'Knee slide'], ['point', 'Point up'], ['plane', 'Airplane'], ['dance', 'Dance']], st.cele)}
+      <div class="lbl">Your look</div>
+      <button class="lookb" id="look">${pic ? `<img alt="" src="${pic}">` : '<span class="sic">★</span>'}<span><b>Design your player</b><small>Skin, hair, beard, face, boots, sleeves, build, celebration</small></span><i>›</i></button>
       <div class="lbl">Your road in</div>${seg('path', [['academy', 'Academy'], ['rebuilt', 'Released'], ['wonderkid', 'Wonderkid']], st.path)}
       <p class="sub" id="pathd"></p>
-      <div class="lbl">Where you start</div><select id="lgp">${D.LEAGUES.map(l => `<option value="${l.id}">${l.name} · ${l.country}</option>`).join('')}</select>
+      <div class="lbl">Where you start</div><select id="lgp">${D.LEAGUES.map(l => `<option value="${l.id}"${l.id === st.lg ? ' selected' : ''}>${l.name} · ${l.country}</option>`).join('')}</select>
       <div class="lbl">Your first club</div>
       <div class="clubs" id="clubs">${clubList()}</div>
       <button class="go" id="sign">Sign your first contract</button></div>`);
@@ -256,20 +261,72 @@
     const pdesc = { academy: 'Came up through the academy of a small club. Bench to start, a rival from your year at the club next door.',
       rebuilt: 'Released by a big club at sixteen, rebuilt at a small one. Hungrier: you start more, with a little more XP, and the big club kept your rival.',
       wonderkid: 'A big club paid a fortune for you. Higher ceiling, fewer minutes, and a rival who plays every week somewhere smaller.' };
-    let lastPath = st.path;
+    let lastPath = st.path, wireClubs = null;
     const upd = () => { $('#posd').textContent = desc[st.pos]; $('#pathd').textContent = pdesc[st.path]; if (st.path !== lastPath) { lastPath = st.path; weak = weakOf(st.lg); st.club = weak[0].i; $('#clubs').innerHTML = clubList(); wireClubs && wireClubs(); } };
-    let wireClubs = null;
     upd(); segs(st, upd);
-    scr.querySelectorAll('.swatch button').forEach(b => b.addEventListener('click', () => { st.skin = +b.dataset.v; scr.querySelectorAll('.swatch button').forEach(x => x.classList.toggle('on', x === b)); }));
+    $('#nm').oninput = () => { st.name = $('#nm').value; };
+    $('#nat').onchange = () => { st.nation = $('#nat').value; };
     wireClubs = () => on('.clubc', e => { const b = e.currentTarget; st.club = +b.dataset.i; scr.querySelectorAll('.clubc').forEach(x => x.classList.toggle('on', x === b)); });
     wireClubs();
     $('#lgp').onchange = () => { st.lg = +$('#lgp').value; weak = weakOf(st.lg); st.club = weak[0].i; $('#clubs').innerHTML = clubList(); wireClubs(); };
     on('#bk', menu);
+    on('#look', () => lookBuilder({ name: st.name || 'You', num: me().num, skin: st.skin, look: st.look }, D.CLUBS[st.club], (skin, look) => { if (skin != null) { st.skin = skin; st.look = look; } newCareer(true); }));
     on('#sign', () => {
       const name = $('#nm').value.trim() || 'Alex Rivera';
-      K.create({ name, path: st.path, nation: $('#nat').value, pos: st.pos, foot: st.foot, club: st.club, skin: st.skin, look: { hair: st.hair, hairColor: '#17110d', face: 0, cele: st.cele } });
-      tab = 'home'; hub();
+      K.create({ name, path: st.path, nation: st.nation, pos: st.pos, foot: st.foot, club: st.club, skin: st.skin, look: Object.assign({}, st.look) });
+      NC = null; tab = 'home'; hub();
     });
+    /* the model may still be loading the first time: draw the face in when it is ready */
+    if (!pic) setTimeout(() => { if (scr.querySelector('#look .sic') && PS.Model && PS.Model.ready()) newCareer(true); }, 900);
+  }
+
+  /* ------------------------------------------------------------ the look builder (PocketBasketball's creator, for soccer) */
+  const LOOK = {
+    hair: [['fade', 'Fade'], ['short', 'Short'], ['buzz', 'Buzz'], ['high', 'High top'], ['curly', 'Curly'], ['afro', 'Afro'], ['twists', 'Twists'], ['cornrows', 'Cornrows'], ['locs', 'Locs'], ['braids', 'Braids'],
+      ['mohawk', 'Mohawk'], ['spiky', 'Spiky'], ['bun', 'Bun'], ['ponytail', 'Ponytail'], ['long', 'Long'], ['bald', 'Bald']],
+    hairColor: ['#17110d', '#2b1d12', '#4a3020', '#6b4a2b', '#c9a46a', '#e8d6a8', '#8a2b1a', '#9aa0a6'],
+    beard: [[null, 'None'], ['stubble', 'Stubble'], ['goatee', 'Goatee'], ['mustache', 'Mustache'], ['chinstrap', 'Chinstrap'], ['full', 'Full']],
+    band: [[null, 'None'], ['#f2f2f2', 'White'], ['#111111', 'Black'], ['#d32f2f', 'Red'], ['#1e88e5', 'Blue']],
+    boot: ['#151515', '#f2f2f2', '#e53935', '#1e88e5', '#ff9800', '#43a047', '#d4af37', '#ec407a'],
+    sleeves: [['short', 'Short'], ['long', 'Long']],
+    build: [['slim', 'Slim'], ['regular', 'Regular'], ['strong', 'Strong']],
+    cele: [['arms', 'Arms up'], ['knee', 'Knee slide'], ['point', 'Point up'], ['plane', 'Airplane'], ['dance', 'Dance']]
+  };
+  function lookBuilder(d, club, done) {
+    const st = { skin: d.skin ?? 3, look: Object.assign({ hair: 'fade', hairColor: '#17110d', beard: null, face: 0, band: null, boot: '#151515', sleeves: 'short', build: 'regular', cele: 'arms' }, d.look || {}), yaw: 0, sec: 'hair' };
+    const kit = club;
+    const segL = (k, opts) => `<div class="seg wrap" data-lk="${k}">${opts.map(([v, t]) => `<button data-v="${v == null ? '' : v}" class="${String(st.look[k] ?? '') === String(v ?? '') ? 'on' : ''}">${t}</button>`).join('')}</div>`;
+    const sw = (k, cols) => `<div class="swatch" data-lk="${k}">${cols.map(c => `<button data-v="${c}" class="${st.look[k] === c ? 'on' : ''}" style="background:${c}" aria-label="${c}"></button>`).join('')}</div>`;
+    const SECS = [['hair', 'Hair'], ['face', 'Face'], ['kit', 'Kit'], ['body', 'Body']];
+    const draw = () => {
+      const ready = PS.Model && PS.Model.ready();
+      const p = { name: d.name, num: d.num, skin: st.skin, look: st.look };
+      const full = ready ? headOf(p, kit, 220, { body: true, close: false, yaw: st.yaw }) : null, head = ready ? headOf(p, kit, 120) : null;
+      const body = st.sec === 'hair' ? `<div class="lbl">Style</div>${segL('hair', LOOK.hair)}<div class="lbl">Colour</div>${sw('hairColor', LOOK.hairColor)}<div class="lbl">Headband</div>${segL('band', LOOK.band)}`
+        : st.sec === 'face' ? `<div class="lbl">Skin tone</div><div class="swatch" data-sk="1">${PS.SKIN.map((c, i) => `<button data-v="${i}" class="${i === st.skin ? 'on' : ''}" style="background:${c}" aria-label="Skin tone ${i + 1}"></button>`).join('')}</div>
+            <div class="lbl">Face</div>${segL('face', [0, 1, 2, 3, 4, 5, 6, 7].map(i => [i, String(i + 1)]))}<div class="lbl">Beard</div>${segL('beard', LOOK.beard)}`
+        : st.sec === 'kit' ? `<div class="lbl">Boots</div>${sw('boot', LOOK.boot)}<div class="lbl">Sleeves</div>${segL('sleeves', LOOK.sleeves)}`
+        : `<div class="lbl">Build</div>${segL('build', LOOK.build)}<div class="lbl">Goal celebration</div>${segL('cele', LOOK.cele)}`;
+      show(`<div class="page builder"><button class="back" id="bk">‹ Back</button><h2>Your look</h2>
+        <div class="stage">${full ? `<img class="full" alt="" src="${full}">` : '<p class="mute">Loading the player…</p>'}${head ? `<img class="hd" alt="" src="${head}">` : ''}
+          <button class="turn l" id="tl" aria-label="Turn left">‹</button><button class="turn r" id="tr" aria-label="Turn right">›</button></div>
+        <div class="seg">${SECS.map(([k, t]) => `<button data-sec="${k}" class="${st.sec === k ? 'on' : ''}">${t}</button>`).join('')}</div>
+        ${body}
+        <button class="go" id="ldone">Done</button></div>`);
+      const y = scr.scrollTop;
+      on('#bk', () => done(null));
+      on('#ldone', () => done(st.skin, st.look));
+      on('#tl', () => { st.yaw -= Math.PI / 4; redraw(); });
+      on('#tr', () => { st.yaw += Math.PI / 4; redraw(); });
+      scr.querySelectorAll('[data-sec]').forEach(b => b.onclick = () => { st.sec = b.dataset.sec; redraw(); });
+      scr.querySelectorAll('[data-lk] button').forEach(b => b.onclick = () => { const k = b.parentNode.dataset.lk, v = b.dataset.v; st.look[k] = v === '' ? null : k === 'face' ? +v : v; redraw(); });
+      scr.querySelectorAll('[data-sk] button').forEach(b => b.onclick = () => { st.skin = +b.dataset.v; redraw(); });
+      if (!ready) setTimeout(() => { if (PS.Model && PS.Model.ready() && scr.querySelector('.builder')) redraw(); }, 600);
+      return y;
+    };
+    /* a change redraws the page and keeps the scroll where it was */
+    const redraw = () => { const y = scr.scrollTop; draw(); scr.scrollTop = y; };
+    draw();
   }
 
   /* ------------------------------------------------------------ hub */
@@ -303,6 +360,7 @@
     on('#simm', () => matchDay(true));
     on('.up', e => { if (K.upgrade(e.currentTarget.dataset.k)) hub(); });
     on('#tosoc', () => { tab = 'social'; socTab = 'feed'; hub(); });
+    on('#relook', () => lookBuilder({ name: c.name, num: c.num, skin: c.skin ?? 3, look: c.look }, K.club(), (skin, look) => { if (skin != null) { c.skin = skin; c.look = Object.assign({}, look); K.save(); } hub(); }));
     const keepY = () => { const y = scr.scrollTop; hub(); scr.scrollTop = y; };
     scr.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { socTab = b.dataset.st; keepY(); });
     if (tab === 'social' || tab === 'home') PS.social.wire(scr, keepY);
@@ -364,6 +422,7 @@
     return `<div class="mini"><div><b>${c.totals.apps}</b><span>apps</span></div><div><b>${c.totals.goals}</b><span>goals</span></div><div><b>${c.totals.assists}</b><span>assists</span></div><div><b>${c.trophies.length}</b><span>honours</span></div></div>
       ${c.intl && c.intl.ever ? `<div class="mini"><div><b>${c.intl.caps}</b><span>caps</span></div><div><b>${c.intl.goals}</b><span>for ${esc(c.nation)}</span></div></div>` : ''}
       ${(r => r ? `<div class="lbl">Your rival</div><div class="rivc">${(h => h ? `<img alt="" src="${h}">` : '')(headOf({ name: r.short, num: r.num, skin: r.skin, look: r.look }, K.team(r.club), 120))}<div><b>${esc(r.name)}</b><small>${K.team(r.club).name} · rated ${r.ovr}</small><small>${r.tot.g} goals in ${r.tot.apps} games · you v him: won ${r.h2h[0]}, drawn ${r.h2h[1]}, lost ${r.h2h[2]}</small></div></div>` : '')(K.rival())}
+      <button class="btn2 sm" id="relook">Change your look</button>
       <div class="lbl">Seasons</div>
       ${c.history.length ? `<table class="tbl"><thead><tr><th class="l">Season</th><th class="l">Club</th><th>Ap</th><th>G</th><th>A</th><th>Avg</th></tr></thead><tbody>${c.history.map(h => `<tr><td class="l">${h.y}/${String(h.y + 1).slice(2)}</td><td class="l">${D.CLUBS[h.club].ab} <small>${D.LEAGUES[h.lg ?? 0].ab}</small> (${K.ord(h.pos)})</td><td>${h.apps}</td><td>${h.goals}</td><td>${h.assists}</td><td>${h.avg.toFixed(2)}</td></tr>`).join('')}</tbody></table>` : '<p class="mute">Your first season is under way.</p>'}
       <div class="lbl">Honours</div>
