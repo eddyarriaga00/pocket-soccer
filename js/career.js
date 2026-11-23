@@ -153,7 +153,7 @@
     const me = ovr(C.a, C.pos), offers = [];
     D.CLUBS.forEach((c, i) => {
       if (i === C.club) return;
-      if (c.ovr > club().ovr && c.ovr <= me + 14 && avg >= 6.6 && Math.random() < 0.55 + (avg - 6.6) * 0.5) offers.push({ i, wage: Math.round(c.ovr * 180 + me * 120) });
+      if (c.ovr > club().ovr && c.ovr <= me + 14 + (C.social ? Math.floor(C.social.hype / 20) : 0) && avg >= 6.5 && Math.random() < 0.55 + (avg - 6.6) * 0.5 + (C.social ? C.social.hype / 250 : 0)) offers.push({ i, wage: Math.round(c.ovr * 180 + me * 120) });
     });
     C.offers = offers.sort((a, b) => D.CLUBS[b.i].ovr - D.CLUBS[a.i].ovr).slice(0, 3);
     news(`Season ${C.season} over: ${club().name} finish ${ord(pos)}. ${C.name}: ${ss.apps} apps, ${ss.goals} goals, ${ss.assists} assists, average ${avg.toFixed(2)}.`);

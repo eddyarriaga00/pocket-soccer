@@ -7,7 +7,7 @@
   const $ = s => document.querySelector(s);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-  let scr, game, tab = 'home', modelP = null;
+  let scr, game, tab = 'home', socTab = 'feed', modelP = null;
   const SKEY = 'pocketsoccer.settings';
   const S = Object.assign({ half: 180, zoom: 1, sound: true, cam: 'broadcast', camCareer: 'lock', radar: true }, (() => { try { return JSON.parse(localStorage.getItem(SKEY) || '{}'); } catch (e) { return {}; } })());
   const saveS = () => { try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) { /* private mode */ } };
@@ -264,8 +264,8 @@
   function hub() {
     const c = K.C; if (!c) return menu();
     if (c.summary) return seasonEnd();
-    const tabs = [['home', 'Home'], ['table', 'League'], ['skills', 'Skills' + (affordable() ? ' •' : '')], ['career', 'Career']];
-    const body = tab === 'home' ? homeTab() : tab === 'table' ? tableTab() : tab === 'skills' ? skillsTab() : careerTab();
+    const tabs = [['home', 'Home'], ['social', 'Social'], ['table', 'League'], ['skills', 'Skills' + (affordable() ? ' •' : '')], ['career', 'Career']];
+    const body = tab === 'home' ? homeTab() : tab === 'social' ? `<div class="soc">${PS.social.tab(socTab)}</div>` : tab === 'table' ? tableTab() : tab === 'skills' ? skillsTab() : careerTab();
     show(`<div class="hub"><div class="hubtop"><button class="back" id="mn">‹ Menu</button><span>Season ${c.season} · ${c.year}/${String(c.year + 1).slice(2)}</span></div>
       ${card()}
       <div class="tabs">${tabs.map(([k, t]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${t}</button>`).join('')}</div>
@@ -275,6 +275,10 @@
     on('#play', () => matchDay(false));
     on('#simm', () => matchDay(true));
     on('.up', e => { if (K.upgrade(e.currentTarget.dataset.k)) hub(); });
+    on('#tosoc', () => { tab = 'social'; socTab = 'feed'; hub(); });
+    const keepY = () => { const y = scr.scrollTop; hub(); scr.scrollTop = y; };
+    scr.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { socTab = b.dataset.st; keepY(); });
+    if (tab === 'social' || tab === 'home') PS.social.wire(scr, keepY);
   }
   const affordable = () => Object.keys(K.C.a).some(k => K.C.xp >= K.cost(K.C.a[k], K.C.pot) && K.C.a[k] < K.cap());
   const avg = a => a.length ? (a.reduce((s, v) => s + v, 0) / a.length).toFixed(2) : '–';
@@ -293,6 +297,7 @@
         <button class="go" id="play">Play match</button><button class="btn2 sm" id="simm">Sim match</button></div>` : ''}
       ${last ? `<div class="lastr"><div class="lbl">Last match</div><p>${K.club().ab} ${last.score[0]}–${last.score[1]} ${K.club(last.opp).ab}${last.rating ? ` · your rating <b class="rt ${rc(last.rating.r)}">${last.rating.r.toFixed(1)}</b>` : ' · unused sub'}</p></div>` : ''}
       <div class="mini"><div><b>${K.ord(pos)}</b><span>in the league</span></div><div><b>${c.ss.goals}</b><span>goals</span></div><div><b>${c.ss.assists}</b><span>assists</span></div><div><b>${avg(c.ss.ratings)}</b><span>avg rating</span></div></div>
+      <div class="lbl">Social <small>${PS.social.short(c.fans || 0)} followers · hype ${PS.social.S().hype}</small></div><div class="feedl">${(c.feed || []).filter(f => f.kind !== 'trend').slice(0, 2).map(f => PS.social.card(f, -1)).join('') || '<p class="mute">Play a match and the internet will have something to say.</p>'}</div><button class="btn2 sm" id="tosoc">Open Social</button>
       <div class="lbl">News</div><ul class="news">${c.news.slice(0, 8).map(n => `<li>${esc(n.t)}</li>`).join('')}</ul>`;
   }
   function tableTab() {
@@ -332,7 +337,10 @@
     const done = G => {
       const res = PS.Match.result(G);
       const m = Object.assign(res, { oppIdx: co.f.opp, home: co.f.home, round: co.f.round, user: K.C.name });
-      fullTime(G, K.finishMatch(m));
+      const last = K.finishMatch(m);
+      const sx = PS.social.after({ us: K.club(), them: K.club(co.f.opp), oppIdx: co.f.opp, score: res.score, stats: res.stats, rating: last.rating ? last.rating.r : null, played: !!last.rating, mins: last.mins });
+      K.save();
+      fullTime(G, last, sx);
     };
     if (sim) {
       const G = PS.Match.create(Object.assign({}, co.o, { auto: true }));
@@ -341,7 +349,7 @@
     }
     playMatch(co.o, done);
   }
-  function fullTime(G, last) {
+  function fullTime(G, last, sx) {
     const r = last.rating, cl = K.club(), op = K.club(last.opp);
     show(`<div class="page result">
       <div class="lbl">Full time · matchday ${last.round + 1}</div>
@@ -352,8 +360,23 @@
       <div class="mini"><div><b>${last.mins}'</b><span>played</span></div><div><b>${last.stats.shots}</b><span>shots</span></div><div><b>${last.stats.passOk || 0}/${last.stats.passes || 0}</b><span>passes</span></div><div><b>${last.stats.tackles || 0}</b><span>tackles</span></div></div>` : '<p class="center mute">You stayed on the bench today.</p>'}
       <div class="gains"><div><b>+${last.xp}</b><span>XP</span></div><div><b class="${last.dTrust >= 0 ? 'pos' : 'neg'}">${last.dTrust >= 0 ? '+' : ''}${last.dTrust}</b><span>manager trust</span></div></div>
       <div class="lbl">Match stats</div>${teamStats(G)}
-      <button class="go" id="cont">Continue</button></div>`);
-    on('#cont', () => { tab = 'home'; hub(); });
+      ${sx ? `<div class="lbl">Social</div><p class="mute">${sx.dFans >= 0 ? '+' : ''}${PS.social.short(sx.dFans)} followers · hype ${sx.dHype >= 0 ? '+' : ''}${sx.dHype}</p><div class="feedl">${sx.posts.filter(f => f.kind !== 'trend').slice(0, 3).map(f => PS.social.card(f, -1)).join('')}</div>` : ''}
+      <button class="go" id="cont">Face the press</button><button class="btn2 sm" id="skip">Skip the press</button></div>`);
+    const ctx = { us: K.club(), them: K.club(last.opp), score: G.score, stats: last.stats, played: !!last.rating };
+    on('#cont', () => press(ctx, 0));
+    on('#skip', () => { tab = 'home'; hub(); });
+  }
+
+  /* the press conference: three questions, three tones (what each does is shown with the answer) */
+  function press(ctx, i, qs) {
+    qs = qs || PS.social.pressQs(ctx);
+    if (i >= qs.length) { tab = 'social'; socTab = 'feed'; return hub(); }
+    const [q, ans] = qs[i];
+    const head = headOf({ name: K.C.name, num: K.C.num, skin: K.C.skin ?? 3, look: K.C.look }, K.club(), 180);
+    show(`<div class="page press"><div class="lbl">Press conference · ${i + 1} of ${qs.length}</div>${head ? `<img class="phead" alt="" src="${head}">` : ''}
+      <div class="next"><h3>“${esc(q)}”</h3></div>
+      ${ans.map((a, k) => `<button class="btn2 ans" data-k="${k}">${esc(a[0])}<small>${a[4]}${a[1] > 0 ? ' · the manager likes it' : a[1] < 0 ? ' · the manager won’t' : ''}${a[2] >= 5 ? ' · +hype' : ''}</small></button>`).join('')}</div>`);
+    scr.querySelectorAll('.ans').forEach(b => b.onclick = () => { PS.social.answer(ans[+b.dataset.k]); press(ctx, i + 1, qs); });
   }
 
   /* ------------------------------------------------------------ season end */
