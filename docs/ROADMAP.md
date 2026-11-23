@@ -10,6 +10,7 @@ Update this file after every item.
 - **Rollback points:** before every push to `main`, add a line below with the commit `main` is on and what the push
   brings. To go back: `git revert --no-edit <commit>..main`, then push `main`.
 - **Rollback points** (newest first; the commit is the last good `main` before that change):
+  - `0465963`, before running and pace: acceleration, braking and turning as a body, walk/jog/run/sprint off the ball, exact pass weight, lane reading, through balls weighted for the runner (2026-11-23).
   - `07a7b57`, before the team AI: styles, one back line with a trap, runs into space, overlaps, corner routines, stamina and substitutions (2026-11-23).
   - `38e8a5f`, before skill moves and defending (2026-11-23).
   - `81354af`, before the ball at the feet: touches, close control, first touch, half-turn, turning, shielding (2026-11-23).
@@ -146,3 +147,9 @@ target), passing 77%, 3.6 fouls, 0.1 offsides (low: noted), 4 substitutions, tac
 the feet, invariants held every tick. After the passing work (Premier Division clubs): about 3 goals (2.7 to 3.6 between runs), 15 shots
 (10 on target), about 170 passes at 79-80%, 1.2 corners, 2.6 fouls, 7 saves. Before it: 2.2 goals, 14 shots, 155
 passes at 75%. Lofted passes are chested down by the man they are for; the computer only lofts to a man with room. Possession lands near 50/50 between even sides; stronger clubs win more but not always.
+
+After running and pace (2026-11-23, 48 matches): 3.2 goals, 16.9 shots (10.7 on target), about 145 passes at 75% (ground
+passes 86% complete, through balls 70%, crosses are the misses), 5 fouls, 4 substitutions. How they move, outfield in
+open play: 3.6 m/s on average, walking 19%, jogging 57%, running 18%, sprinting 5% (before: everyone at 4.5 m/s, nearly
+half the time running). The man you control goes 0 to 7.8 m/s in about 0.75 s on Sprint and needs about 0.6 s to
+plant and turn back from flat out.

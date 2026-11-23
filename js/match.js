@@ -373,7 +373,7 @@
     const airK = b.z > 0.45 ? 1.35 : 1, runK = hyp(p.vx, p.vy) > 6.4 ? 1.15 : 1;
     const tK = { perfect: 0.36, good: 0.75, early: 1, over: 1.2 }[o.timing || 'good'];
     const base = 0.075 - a.sho * 0.0005;   // radians: shooting 50 about 3.4°, 75 about 2.1°, 90 about 1.7° before the factors
-    const sdH = base * S.err * (0.75 + 0.5 * pw) * pressK * bodyK * footK * airK * runK * tK * (p.ctl ? 1 : 1.6);
+    const sdH = base * S.err * (0.75 + 0.5 * pw) * pressK * bodyK * footK * airK * runK * tK * (p.ctl ? 1 : 2.2);
     const sdV = (0.3 + 0.9 * pw) * S.err * pressK * airK * tK * (type === 'low' ? 0.45 : 1);
     const over = o.timing === 'over' ? 1.1 + Math.max(0, pw - 0.8) * 5 : 0;
     return { type, pw, tx, tz, gy, v, spin, top: type === 'low' ? 4 : type === 'power' ? 2 : type === 'chip' ? 3 : 0, sdH, sdV, over, dist, timing: o.timing || 'good', weak, press, foot: weak ? (p.foot === 'Left' ? 'R' : 'L') : (p.foot === 'Left' ? 'L' : 'R') };
@@ -482,7 +482,8 @@
   function pass(G, p, to, pt, opts = {}) {
     const b = G.ball, a = p.a;
     let tx, ty;
-    if (to) { const dd = d2(b, to), tt = dd / 15; tx = to.x + to.vx * tt * 0.85; ty = to.y + to.vy * tt * 0.85; }
+    /* to a man: where he will be when it gets there (his run, a few iterations of the real roll time) */
+    if (to) { tx = to.x; ty = to.y; for (let k = 0; k < 3; k++) { const d = hyp(tx - b.x, ty - b.y), tt = opts.lob ? 0.8 + d / 26 : rollTime(groundV(d, arriveV(d, opts)), d); tx = to.x + to.vx * tt * 0.8; ty = to.y + to.vy * tt * 0.8; } }
     else { tx = pt.x; ty = pt.y; }
     tx = clamp(tx, 1, W - 1); ty = clamp(ty, 1, L - 1);
     p.face = Math.atan2(tx - p.x, ty - p.y);
@@ -496,8 +497,7 @@
       } else {
         /* pace: a weighted pass arrives at a jog, a driven one fizzes (harder to cut out, harder to control) */
         const pw = opts.pw == null ? clamp(d / 34, 0.2, 0.7) : opts.pw;
-        const arrive = (through ? 7 : 4.6) + pw * 6.5;
-        const v = Math.sqrt(arrive * arrive + 2 * 2.4 * d) * (1 + gauss() * 0.06 * (1 - a.pas / 100) * (1 + pw * 0.6));
+        const v = groundV(d, arriveV(d, opts)) * (1 + gauss() * 0.06 * (1 - a.pas / 100) * (1 + pw * 0.6));
         kickNow(G, p, Math.sin(ang) * v, Math.cos(ang) * v, 0, 0, through ? 'through' : 'pass', to);
       }
       to = to || opts.to;
@@ -506,6 +506,29 @@
     }, { power: 0.5, lob: lofted, T: lofted ? 0.36 : 0.28 });
   }
 
+  /* pass weight. The ball rolls with a resistance of 1.1 + 0.11 v (physics.js), so the speed it must leave the foot
+     at to cover d and still be going at va is exact: s(v0) = (v0 - va)/k - a/k^2 ln((a + k v0)/(a + k va)). A
+     weighted pass arrives at a brisk jog for his feet, a through ball keeps running into the space, a driven one
+     fizzes (harder to cut out, harder to control). */
+  const RA = 1.1, RK = 0.11;
+  const rollDist = (v0, va) => (v0 - va) / RK - RA / (RK * RK) * Math.log((RA + RK * v0) / (RA + RK * va));
+  function groundV(d, va) { let lo = va, hi = 45; for (let i = 0; i < 26; i++) { const m = (lo + hi) / 2; if (rollDist(m, va) < d) lo = m; else hi = m; } return hi; }
+  function rollTime(v0, d) { const c = RA / RK, s = t => (v0 + c) * (1 - Math.exp(-RK * t)) / RK - c * t; let lo = 0, hi = Math.log((v0 + c) / c) / RK; if (s(hi) < d) return hi; for (let i = 0; i < 22; i++) { const m = (lo + hi) / 2; if (s(m) < d) lo = m; else hi = m; } return hi; }
+  function arriveV(d, opts) { const pw = opts.pw == null ? clamp(d / 34, 0.2, 0.7) : opts.pw; return (opts.through ? 4.2 + pw * 4.5 : 7 + pw * 5.5); }
+  /* how likely a ground pass from p to q is cut out: for each opponent near the line, the time the ball takes to get
+     level with him against the time he needs to get across to it (a beat to react, then his speed). A man two metres
+     off a slow pass is in the way; the same man off a firm one is not. */
+  function laneRisk(G, p, q, opps) {
+    const d = d2(p, q), v0 = groundV(d, arriveV(d, {}));
+    let risk = 0;
+    for (const o of opps) {
+      const st = segT(o, p, q); if (st < 0.06 || st > 1.02) continue;
+      const sd = segDist(o, p, q); if (sd > 6) continue;
+      const tb = rollTime(v0, Math.max(0.5, st * d)), to = Math.max(0, sd - 0.8) / (maxSpd(o) * 0.8) + 0.22;
+      risk = Math.max(risk, clamp(0.5 + (tb - to) * 1.6, 0, 1) * (st > 0.9 ? 0.6 : 1));
+    }
+    return risk;
+  }
   /* ------------------------------------------------------------------ AI on the ball */
   function aiOnBall(G, p, restart) {
     const b = G.ball, t = p.t, gy = goalY(G, t), opps = teamOf(G, opp(t)), mates = teamOf(G, t).filter(q => q !== p);
@@ -530,7 +553,7 @@
       const dd = d2(p, q); if (dd < 4 || dd > 48) continue;
       const prog = depth(G, t, q.y) - dep;
       const open = Math.min(9, opps.reduce((m, o) => Math.min(m, d2(o, q)), 99));
-      let risk = 0; for (const o of opps) { const sd = segDist(o, p, q), st = segT(o, p, q); if (st > 0.1 && st < 0.96) risk = Math.max(risk, clamp((2.6 - sd) / 2.6, 0, 1) * (1 - st * 0.4)); }
+      const risk = laneRisk(G, p, q, opps);
       const lob = risk > 0.4 && dd > 14;
       /* a lofted ball is a contest in the air when a defender is near the man it is for */
       let s = prog * 0.12 + open * 0.35 - (lob ? risk * 1.2 + 1.2 + Math.max(0, 4 - open) * 1.4 : risk * 4.5) - dd * 0.03 - (G.offside.has(q) ? 9 : 0) + (q.me && G.call && G.call.t > G.t ? 6 : 0) + (q.me ? 0.6 : 0);
@@ -649,7 +672,7 @@
     if (has === t) {
       /* attacking: shape, with runs; a forward with a run on goes in behind */
       const s = shape(G, p);
-      p.tx = s.x; p.ty = s.y; p.want = maxSpd(p) * 0.7;
+      p.tx = s.x; p.ty = s.y; p.want = gait(G, p, 0.25);
       if (p.run && p.run > G.t) { const line = offLine(G, t); p.ty = fromDepth(G, t, Math.min(L - 8, line + 8)); p.want = maxSpd(p); }
       else if (FWD(p.role) && own && Math.random() < dt * 0.25 && depth(G, t, own.y) > L * 0.35) p.run = G.t + rnd(1.5, 2.5);
       /* find space: a few spots around his place in the shape, scored on how open they are, a clear lane from the
@@ -668,10 +691,10 @@
           }
           p.spot = bp;
         }
-        if (p.spot) { p.tx = p.spot.x; p.ty = p.spot.y; }
+        if (p.spot) { p.tx = p.spot.x; p.ty = p.spot.y; p.want = gait(G, p, FWD(p.role) ? 0.5 : 0.35); }
       }
       /* support: one man shows for the ball near the carrier */
-      if (own && own.t === t && d2(p, own) < 14 && !FWD(p.role)) { const ang = Math.atan2(p.x - own.x, p.y - own.y); p.tx = lerp(p.tx, own.x + Math.sin(ang) * 9, 0.5); p.ty = lerp(p.ty, own.y + Math.cos(ang) * 9, 0.5); }
+      if (own && own.t === t && d2(p, own) < 14 && !FWD(p.role)) { const ang = Math.atan2(p.x - own.x, p.y - own.y); p.tx = lerp(p.tx, own.x + Math.sin(ang) * 9, 0.5); p.ty = lerp(p.ty, own.y + Math.cos(ang) * 9, 0.5); p.want = gait(G, p, 0.5); }
       return;
     }
     /* defending: the nearest presses the ball, the next covers, the rest hold the shape and mark */
@@ -696,7 +719,7 @@
     }
     if (def[1] === p && own && depth(G, t, own.y) < 45) {
       const gx = CX - own.x, g2 = gy - own.y, gl = hyp(gx, g2) || 1, k = Math.min(5, gl * 0.3);
-      p.tx = own.x + gx / gl * k; p.ty = own.y + g2 / gl * k; p.want = maxSpd(p) * 0.9;
+      p.tx = own.x + gx / gl * k; p.ty = own.y + g2 / gl * k; p.want = gait(G, p, 0.7);
       if (d2(p, own) < 1.4 && p.cd <= 0 && Math.random() < dt * 1.2) tackle(G, p, own);
       return;
     }
@@ -711,7 +734,18 @@
       const mx = p.seen.x + gx / gl * 1.6, my = p.seen.y + g2 / gl * 1.6, w = DEF(p.role) ? 0.65 : 0.45;
       p.tx = lerp(s.x, mx, w); p.ty = lerp(s.y, my, w);
     } else { p.tx = s.x; p.ty = s.y; }
-    p.want = maxSpd(p) * 0.82;
+    /* caught upfield with the ball behind him he sprints back; near his own goal he is keen; otherwise he walks and
+       jogs into place */
+    const beat = (ownY(G, t) - b.y) * (ownY(G, t) - p.y) > 0 && Math.abs(ownY(G, t) - p.y) > Math.abs(ownY(G, t) - b.y) + 3;
+    p.want = gait(G, p, beat ? 1 : depth(G, t, b.y) < 40 ? 0.85 : 0.55);
+  }
+  /* how fast a man off the ball goes to his spot: a walk for a step or two, a jog to a place a few metres off, a run
+     or a sprint when it is far or it matters (urge 0..1). The contrast is the pace of the game: most of it walked and
+     jogged, the bursts when something is on. */
+  function gait(G, p, urge) {
+    const d = hyp(p.tx - p.x, p.ty - p.y), vm = maxSpd(p);
+    const need = d < 1 ? 0 : d < 4 ? 0.9 + d * 0.3 : d < 10 ? 2.1 + (d - 4) * 0.48 : 5 + (d - 10) * 0.25;
+    return Math.min(vm, need * (0.75 + urge * 0.55), vm * (0.62 + urge * 0.38));
   }
   /* where p can get to the ball: the first point on its path he reaches in time */
   function meetPoint(G, p) {
@@ -925,8 +959,8 @@
         if (ang > 0.7) continue;
         /* the assist: the man the stick points at, but an open one with a clear lane wins a close call */
         const open = Math.min(6, teamOf(G, opp(p.t)).reduce((m, o) => Math.min(m, d2(o, q)), 99));
-        let lane = 0; for (const o of teamOf(G, opp(p.t))) { const sd = segDist(o, p, q), stt = segT(o, p, q); if (stt > 0.1 && stt < 0.95 && sd < 1.6) lane += (1.6 - sd); }
-        const s = ang * 26 + ol * 0.18 - open * 0.9 + (e.lob ? 0 : lane * 2.2) - (e.k === 'through' && FWD(q.role) ? 4 : 0);
+        const lane = e.lob ? 0 : laneRisk(G, p, q, teamOf(G, opp(p.t)));
+        const s = ang * 26 + ol * 0.18 - open * 0.9 + lane * 4.5 - (e.k === 'through' && FWD(q.role) ? 4 : 0);
         if (s < bs) { bs = s; best = q; }
       }
       const lob = !!e.lob || !!e.long, pw = e.pw == null ? 0.3 : e.pw;
@@ -1086,9 +1120,7 @@
       if (G.ball.owner === p && p.tch) top *= 0.95 + 0.05 * Math.cos(Math.PI * 2 * p.tch.u);   // a touch costs a stride
       const want = dl < 0.12 ? 0 : Math.min(top, dl * 2.6);
       const wx = dl ? dx / dl * want : 0, wy = dl ? dy / dl * want : 0;
-      const acc = (p.stun > 0 ? 3 : 7.5 + p.a.pac * 0.03) * dt;
-      const ex = wx - p.vx, ey = wy - p.vy, el = hyp(ex, ey);
-      if (el > acc) { p.vx += ex / el * acc; p.vy += ey / el * acc; } else { p.vx = wx; p.vy = wy; }
+      run(G, p, wx, wy, dt);
       p.x = clamp(p.x + p.vx * dt, -3, W + 3); p.y = clamp(p.y + p.vy * dt, -2, L + 2);
       const v = hyp(p.vx, p.vy);
       /* face where he is going; standing, face the ball (a carrier faces his run) */
@@ -1117,6 +1149,30 @@
             const side = Math.abs((o2.x - own.x) * Math.cos(own.face) - (o2.y - own.y) * Math.sin(own.face)) / (d || 1) > 0.6;
             if (side && Math.random() < 0.016 * (1 + (o2.a.phy - own.a.phy) / 40)) { o2.cd = 0.9; o2.st.tk++; win(G, o2, own); G.events.push({ k: 'shoulder' }); }
           } } } }
+  }
+  /* running: a body, not a cursor. He gets going hard from a standstill and the last metres a second of his top
+     speed come slowly (Pace); he stops faster than he starts; and at speed he cannot turn on a sixpence: the sideways
+     part of a change is capped by agility (Pace and Dribbling) and falls as he goes faster, so a sharp cut at a
+     sprint slows him and a turn back means plant, stop and go. A move on the ball (or the knock-on) is the exception,
+     and the man you control is a little sharper than the rest so the stick feels quick. */
+  function run(G, p, wx, wy, dt) {
+    const v = hyp(p.vx, p.vy), vm = maxSpd(p), f = Math.min(1, v / vm);
+    const me = p.ctl && G.userOn ? 1.18 : 1, ag = 0.75 + (p.a.pac * 0.45 + p.a.dri * 0.55) / 280;
+    const moving = (p.act && p.act.skill) || p.burst > G.t || (p.goT > G.t && G.ball.owner === p);
+    if (p.stun > 0) { const acc = 3 * dt, ex = wx - p.vx, ey = wy - p.vy, el = hyp(ex, ey); if (el > acc) { p.vx += ex / el * acc; p.vy += ey / el * acc; } else { p.vx = wx; p.vy = wy; } return; }
+    const go = (4.4 + p.a.pac * 0.034) * (1.3 - 0.8 * f * f) * me * (moving ? 1.4 : 1);   // about 8 from a standstill, 3.5 near the top
+    const brake = (9 + p.a.pac * 0.02) * me * (moving ? 1.3 : 1);
+    if (v < 0.6) {   // standing: any way at all
+      const acc = go * dt, ex = wx - p.vx, ey = wy - p.vy, el = hyp(ex, ey);
+      if (el > acc) { p.vx += ex / el * acc; p.vy += ey / el * acc; } else { p.vx = wx; p.vy = wy; }
+      return;
+    }
+    const ux = p.vx / v, uy = p.vy / v, wa = wx * ux + wy * uy, lx = wx - wa * ux, ly = wy - wa * uy, ll = hyp(lx, ly);
+    const side = 11.5 * ag * (1.12 - 0.55 * f) * me * (moving ? 2.6 : 1);   // sideways accel: about 10 at a jog, 6 flat out
+    const dA = wa - v, nv = v + (dA > 0 ? Math.min(dA, go * dt) : Math.max(dA, -brake * dt));
+    const dl = Math.min(ll, side * dt), sx = ll ? lx / ll * dl : 0, sy = ll ? ly / ll * dl : 0;
+    p.vx = ux * nv + sx; p.vy = uy * nv + sy;
+    const nl = hyp(p.vx, p.vy), cap = Math.max(hyp(wx, wy), v); if (nl > cap && nl > 0) { p.vx *= cap / nl; p.vy *= cap / nl; }
   }
   function slideContact(G, p) {
     if (p.slideHit) return;
@@ -1204,7 +1260,7 @@
     if (!((py - g.y) * toward < 0 && (b.y - g.y) * toward >= -0.1)) return;
     /* how far he can get to: standing reach, then the dive as it unfolds; the top corner is the last place a keeper
        gets to (dives up take longer than dives low), and a chip that is over his head is gone */
-    const dz = Math.max(0, b.z - 1.7), reach = ((sh.pen ? 0.35 : 1.0) + (g.dive ? clamp((G.t - g.dive) * 2.1, 0, 0.95) : 0) + g.a.gk * 0.002) * (1 - dz * 0.42), dxk = Math.abs(b.x - g.x);
+    const dz = Math.max(0, b.z - 1.7), reach = ((sh.pen ? 0.35 : 1.0) + (g.dive ? clamp((G.t - g.dive) * 2.1, 0, 1.45) : 0) + g.a.gk * 0.002) * (1 - dz * 0.42), dxk = Math.abs(b.x - g.x);
     const offLine = Math.abs(g.y - ownY(G, t)), maxH = 2.3 + g.a.gk * 0.002 - (offLine > 4 && sh.chip ? 0.2 : 0);
     const e = clamp((dxk / reach - 0.45) / 0.55, 0, 1), hands = 0.97 - (sh.pen ? 0.62 : 0.55) * e * e * (3 - 2 * e) - Math.max(0, hyp(b.vx, b.vy) - 24) * 0.012;
     if (dxk < reach && b.z < maxH && Math.random() < hands) {
@@ -1272,7 +1328,7 @@
       /* interceptions: one chance per man per pass, harder when it is struck hard */
       if (G.pass && G.pass.from.t !== p.t && sp > 6 && G.pass.to !== p) {
         const kid = G.pass.t;
-        if (p.rollFor !== kid) { p.rollFor = kid; p.rollOk = Math.random() < clamp(0.7 - sp * 0.028 + p.a.def * 0.003, 0.12, 0.75); }
+        if (p.rollFor !== kid) { p.rollFor = kid; p.rollOk = Math.random() < clamp(0.76 - sp * 0.024 + p.a.def * 0.003, 0.15, 0.8); }
         if (!p.rollOk) continue;
         p.st.it++;
       }
@@ -1283,7 +1339,7 @@
         G.offside.clear();
         if (G.pass && G.pass.from.t === p.t && G.pass.from !== p) { G.stats[p.t].passOk++; G.pass.from.st.pc++; }
         /* the first touch: a hard or bouncing ball and a poor touch let it get away from him by a metre or two */
-        const heavy = p.role !== 'GK' && Math.random() < clamp((rel - 7.5) / ctrl, 0, 1) * (1.25 - p.a.dri / 100) * (b.z > 0.35 ? 1.4 : 1) * 0.9;
+        const heavy = p.role !== 'GK' && Math.random() < clamp((rel - 8.5) / ctrl, 0, 1) * (1.25 - p.a.dri / 100) * (b.z > 0.35 ? 1.4 : 1) * 0.9;
         if (heavy) {
           const a = p.face + rnd(-0.7, 0.7), v = 2.6 + rel * 0.16;
           b.vx = Math.sin(a) * v + p.vx * 0.4; b.vy = Math.cos(a) * v + p.vy * 0.4; b.vz = 0; b.z = Math.min(b.z, R); b.last = p; G.lastTouch = p;

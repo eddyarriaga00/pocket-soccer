@@ -17,6 +17,7 @@
   const INV = typeof process !== 'undefined' && process.argv.includes('--inv');
   const PH = new Set(['walkout', 'kickoff', 'restart', 'play', 'goal', 'half', 'full']);
   let subs = 0;
+  const gait = { n: 0, v: 0, walk: 0, jog: 0, run: 0, sprint: 0 };
   function invariants(G) {
     const bad = m => { throw new Error('invariant: ' + m + ' at minute ' + PS.Match.minute(G) + ' phase ' + G.phase); };
     const b = G.ball; if (![b.x, b.y, b.z, b.vx, b.vy, b.vz].every(Number.isFinite)) bad('ball not finite');
@@ -30,7 +31,8 @@
     for (let i = 0; i < n; i++) {
       const a = C[i % C.length], b = C[(i * 5 + 3) % C.length];
       const G = PS.Match.create({ teams: [a, b], mode: 'team', halfLen: half, auto: true });
-      let guard = 0; while (!G.over && guard++ < 1e5) { PS.Match.step(G, 1 / 30); if (G.phase === 'half') PS.Match.resume(G); if (INV) invariants(G); }
+      let guard = 0; while (!G.over && guard++ < 1e5) { PS.Match.step(G, 1 / 30); if (G.phase === 'half') PS.Match.resume(G); if (INV) invariants(G);
+        if (G.phase === 'play') for (const p of G.ps) { if (p.bench || p.off || p.role === 'GK') continue; const v = Math.hypot(p.vx, p.vy); gait.n++; gait.v += v; if (v < 2) gait.walk++; else if (v < 5) gait.jog++; else if (v < 6.6) gait.run++; else gait.sprint++; } }
       subs += G.teams[0].subs + G.teams[1].subs;
       if (!G.over) throw new Error('match did not finish: ' + a.ab + ' v ' + b.ab);
       const s = G.stats; tot.goals += G.score[0] + G.score[1];
@@ -41,6 +43,8 @@
     for (const k in tot) tot[k] = +(tot[k] / n).toFixed(1);
     tot.passPct = Math.round(tot.passOk / tot.passes * 100);
     tot.subs = +(subs / n).toFixed(1);
+    /* how they move, outfield men in open play: mean speed and the share of time walking, jogging, running, sprinting */
+    tot.gait = `${(gait.v / gait.n).toFixed(1)} m/s; walk ${Math.round(gait.walk / gait.n * 100)}% jog ${Math.round(gait.jog / gait.n * 100)}% run ${Math.round(gait.run / gait.n * 100)}% sprint ${Math.round(gait.sprint / gait.n * 100)}%`;
     /* tackles on a ball between touches against one at his feet: the gap should be the better moment */
     tot.tackleGap = tk.gap[1] ? `${tk.gap[0]}/${tk.gap[1]} ${Math.round(tk.gap[0] / tk.gap[1] * 100)}%` : '-';
     tot.tackleFeet = tk.feet[1] ? `${tk.feet[0]}/${tk.feet[1]} ${Math.round(tk.feet[0] / tk.feet[1] * 100)}%` : '-';
