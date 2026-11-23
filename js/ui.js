@@ -116,7 +116,7 @@
     M = { G, onEnd, last: performance.now(), acc: 0, paused: false, toasts: [] };
     PS.R3.attach(G); PS.Controls.attach(G); PS.R3.cam = G.mode === 'player' ? S.camCareer : S.cam;
     if (S.sound) PS.Audio.start();
-    if (PS.booth) { PS.booth.enabled = S.comm !== false; PS.booth.load(); Promise.resolve(PS.booth.load()).then(() => { PS.booth.warm(); setTimeout(() => S.sound && PS.booth.say('intro', { prio: 3, follow: 0.6, ana: 'intro_ana' }), 600); }); }
+    if (PS.booth) { PS.booth.enabled = S.comm !== false; PS.booth.load(); Promise.resolve(PS.booth.load()).then(() => { PS.booth.warm(); setTimeout(() => { if (!S.sound) return; const st = G.mode === 'player' && K.C ? K.story() : null, key = st && { debut: 'debut', derby: 'derby', newclub: 'intro', oldclub: 'rival' }[st.k]; PS.booth.say(key && PS.VO[key] ? key : 'intro', { prio: 3, follow: 0.6, ana: 'intro_ana' }); }, 600); }); }
     ov.hidden = true;
     /* on the bench: the match runs on (not drawn) until you come on */
     if (G.me && G.me.bench) {
@@ -290,6 +290,7 @@
     const last = c.last && c.last.round === L.round - 1 ? c.last : null;
     const r = K.role();
     return `${f ? `<div class="next">
+        ${(st => st ? `<div class="story"><b>${esc(st.title)}</b><span>${esc(st.sub)}</span></div>` : '')(K.story(f))}
         <div class="lbl">Matchday ${f.round + 1} of ${L.fx.length} · ${f.home ? 'Home' : 'Away'}</div>
         <div class="vs">${crest(K.club(), 40)}<b>${K.club().ab}</b><span>v</span><b>${opp.ab}</b>${crest(opp, 40)}</div>
         <p>${opp.name} · rated ${opp.ovr} · ${K.ord(K.table().findIndex(x => x.i === f.opp) + 1)} in the table</p>

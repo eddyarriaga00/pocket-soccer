@@ -268,3 +268,5 @@ p{margin:8px 0}
 .press .phead{display:block;width:120px;height:120px;margin:4px auto 0;border-radius:50%;background:var(--panel2)}
 .press .ans{text-align:left}
 .lbl small{font-weight:600;letter-spacing:0;text-transform:none;margin-left:6px}
+.story{margin:10px 0 2px;padding:9px 12px;border-radius:12px;background:linear-gradient(90deg,rgba(255,210,63,.2),transparent);border-left:3px solid var(--gold);text-align:left}
+.story b{display:block;font-family:var(--display);font-size:16px} .story span{font-size:13px;color:var(--mute)}

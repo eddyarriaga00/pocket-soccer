@@ -82,7 +82,60 @@
   function addScorer(ci, name, n = 1) { const k = ci + '|' + name; C.league.scorers[k] = (C.league.scorers[k] || 0) + n; }
 
   /* after the final whistle: the user's match into the table and his record, the round's other matches simulated */
+  /* ---------- the story of each match (PocketBasketball's story(): what this one means for you) ----------
+     C.mem remembers what the next match needs: appearances, starts, the role last time, games for this club, the
+     club you left, a big night, a run of goals, a drought. Shown on the match card, said by the booth, told in the news. */
+  const DERBY = [[0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11]];   // neighbours: each club has one local rival
+  const derbyOf = i => { const d = DERBY.find(p => p.includes(i)); return d ? d[0] === i ? d[1] : d[0] : -1; };
+  function mem() { return C.mem || (C.mem = { apps: 0, starts: 0, lastRole: null, clubApps: 0, prevClub: null, facedOld: false, high: false, run: 0, dry: 0 }); }
+  function story(f) {
+    f = f || nextFixture(); if (!f) return null;
+    const M = mem(), r = role(), o = club(f.opp), t = table(), myPos = t.findIndex(x => x.i === C.club) + 1, oPos = t.findIndex(x => x.i === f.opp) + 1;
+    const S = (k, title, sub) => ({ k, title, sub });
+    const past = (C.results || []).filter(x => x.s === C.season), meet = past.filter(x => x.opp === f.opp).pop();
+    const streak = (C.streak || 0);
+    if (!M.apps) return r === 'starter' ? S('debut', 'Your debut', 'Your first game as a professional, and you start') : S('debut', 'Your debut', 'On the bench: be ready when your number is called');
+    if (M.prevClub != null && !M.clubApps) return S('newclub', 'New club', `Your first game for ${club().name}`);
+    if (M.prevClub === f.opp && !M.facedOld) return S('oldclub', 'Your old club', `First time against ${o.name} since you left`);
+    if (derbyOf(C.club) === f.opp) return S('derby', 'Derby day', `${club().name} v ${o.name}: the one everybody wants to win`);
+    if (r === 'starter' && !M.starts) return S('firststart', 'Your first start', 'The manager puts you in the starting eleven for the first time');
+    if (r !== 'starter' && M.lastRole === 'starter') return S('dropped', 'Dropped', 'You lost your place: go and win it back');
+    if (r === 'starter' && M.lastRole && M.lastRole !== 'starter') return S('backin', 'Back in the side', 'You start again today');
+    if (C.league.round === 0 && C.season > 1) return S('opener', 'Opening day', `Season ${C.season} begins`);
+    if (M.high) return S('afterhigh', 'After a big night', 'Everybody saw the last one: do it again');
+    if (M.run >= 3) return S('run', 'On a scoring run', `Goals in ${M.run} straight games`);
+    if (M.dry >= 5 && C.pos === 'ST') return S('drought', 'The drought', `${M.dry} games without a goal`);
+    if (myPos <= 3 && oPos <= 3) return S('top', 'Top of the table', `${K_ord(myPos)} v ${K_ord(oPos)}: a big one`);
+    if (meet && meet.us < meet.them) return S('rematch', 'Rematch', `${o.name} beat you ${meet.them}-${meet.us} earlier this season`);
+    if (streak >= 4) return S('wstreak', 'Winning streak', `${streak} wins in a row for ${club().name}`);
+    if (streak <= -4) return S('lstreak', 'Losing streak', `${-streak} defeats in a row: somebody has to stop it`);
+    return null;
+  }
+  const K_ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+  /* how the billed story went, for the news */
+  function storyNews(st, last) {
+    if (!st) return null;
+    const n = C.name.split(' ').pop(), g = last.stats.goals, w = last.score[0] > last.score[1], line = g ? `${g} goal${g > 1 ? 's' : ''}` : last.rating ? `a ${last.rating.r.toFixed(1)} rating` : 'no minutes', o = club(last.opp).name;
+    return ({ debut: `${n}'s debut: ${line} against ${o}.`, newclub: `${n}'s first game for ${club().name}: ${line}.`, oldclub: w ? `${n} beats his old club ${o}: ${line}.` : `${n}'s old club ${o} get the better of him.`,
+      derby: w ? `Derby day belongs to ${club().name}${g ? `, and ${n} scores` : ''}.` : `${o} take the derby.`, firststart: `A first start for ${n}: ${line}.`, dropped: g ? `Dropped, ${n} answers: ${line}.` : `${n} off the bench after losing his place.`,
+      backin: `${n} back in the starting eleven: ${line}.`, opener: `Opening day: ${club().name} ${last.score[0]}-${last.score[1]} ${o}.`, afterhigh: g ? `${n} follows the big night with ${line}.` : `${n} comes back to earth.`,
+      run: g ? `${n}'s scoring run goes on.` : `${n}'s scoring run ends.`, drought: g ? `Drought over: ${n} scores again.` : `${n}'s drought goes on.`, top: w ? `${club().name} win the top-of-the-table clash.` : `${o} win the big one at the top.`,
+      rematch: w ? `Revenge for ${club().name} over ${o}.` : `${o} do it again.`, wstreak: w ? `${club().name} keep winning.` : `${club().name}'s winning run ends against ${o}.`, lstreak: w ? `${club().name} end the losing run.` : `The losing run goes on.` })[st.k] || null;
+  }
+  function remember(m, last) {
+    const M = mem(), s = last.stats, played = !!last.rating;
+    if (played) { M.apps++; M.clubApps++; if (m.on === 0) M.starts++; }
+    M.lastRole = m.on === 0 ? 'starter' : 'bench';
+    if (M.prevClub === m.oppIdx) M.facedOld = true;
+    M.high = played && (last.rating.r >= 8.5 || s.goals >= 3);
+    M.run = played && s.goals ? M.run + 1 : played ? 0 : M.run;
+    M.dry = played && !s.goals ? M.dry + 1 : played ? 0 : M.dry;
+    const w = last.score[0] > last.score[1], l = last.score[0] < last.score[1];
+    C.streak = w ? Math.max(0, C.streak || 0) + 1 : l ? Math.min(0, C.streak || 0) - 1 : 0;
+    (C.results = C.results || []).push({ s: C.season, opp: m.oppIdx, us: last.score[0], them: last.score[1] }); C.results = C.results.slice(-60);
+  }
   function finishMatch(m) {
+    const st0 = story({ opp: m.oppIdx, home: m.home, round: C.league.round });
     const L = C.league, rt = m.rating || PS.sim.rating(m), s = m.stats;
     const [hi, ai] = m.home ? [C.club, m.oppIdx] : [m.oppIdx, C.club];
     const [hg, ag] = m.home ? m.score : [m.score[1], m.score[0]];
@@ -124,6 +177,8 @@
     const after = role();
     if (after !== before) news(after === 'starter' ? `The manager: “${C.name.split(' ').pop()} has earned a place in my first eleven.”` :
       before === 'starter' ? `${C.name} drops out of the starting line-up.` : `${C.name} is ${after === 'rotation' ? 'pushing for a start' : 'out of favour'}.`);
+    remember(m, C.last);
+    { const sn = storyNews(st0, C.last); if (sn) news(sn); C.last.story = st0; }
     if (L.round >= L.fx.length) endSeason();
     save();
     return C.last;
@@ -159,7 +214,7 @@
     news(`Season ${C.season} over: ${club().name} finish ${ord(pos)}. ${C.name}: ${ss.apps} apps, ${ss.goals} goals, ${ss.assists} assists, average ${avg.toFixed(2)}.`);
   }
   function nextSeason(moveTo) {
-    if (moveTo != null && moveTo !== C.club) { news(`TRANSFER: ${C.name} completes a move from ${club().name} to ${club(moveTo).name}.`); C.club = moveTo; C.trust = 40; }
+    if (moveTo != null && moveTo !== C.club) { news(`TRANSFER: ${C.name} completes a move from ${club().name} to ${club(moveTo).name}.`); mem().prevClub = C.club; mem().clubApps = 0; mem().facedOld = false; C.club = moveTo; C.trust = 40; }
     C.age++; C.season++; C.year++;
     /* the age curve: young players grow on their own a little, old ones lose pace first */
     for (const k in C.a) {
@@ -192,5 +247,5 @@
   }
   function wipe() { try { localStorage.removeItem(KEY); } catch (e) { /* nothing saved */ } C = null; }
 
-  PS.career = { create, load, save, wipe, get C() { return C; }, ovr, cost: (v, pot) => cost(v, pot, C ? C.age : 20), cap: () => cap(), club, role, nextFixture, startMatch, finishMatch, table, scorers, nextSeason, upgrade, retired, ord };
+  PS.career = { story, derbyOf, create, load, save, wipe, get C() { return C; }, ovr, cost: (v, pot) => cost(v, pot, C ? C.age : 20), cap: () => cap(), club, role, nextFixture, startMatch, finishMatch, table, scorers, nextSeason, upgrade, retired, ord };
 })();
