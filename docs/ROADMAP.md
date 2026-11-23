@@ -10,6 +10,7 @@ Update this file after every item.
 - **Rollback points:** before every push to `main`, add a line below with the commit `main` is on and what the push
   brings. To go back: `git revert --no-edit <commit>..main`, then push `main`.
 - **Rollback points** (newest first; the commit is the last good `main` before that change):
+  - `38e8a5f`, before skill moves and defending (2026-11-23).
   - `81354af`, before the ball at the feet: touches, close control, first touch, half-turn, turning, shielding (2026-11-23).
   - `8dbdbd2`, before the passing work: pace from the hold, lob swipe, open-man assist, one-twos, chest control, computer shot tuning (2026-11-23).
   - `d6d6175`, before the look builder (2026-11-23).
@@ -98,6 +99,12 @@ Update this file after every item.
 - [x] Close control with the stick let go (under the sole); a sharp turn costs a touch and a moment; turning speed from Pace and Dribbling
 - [x] First touch: hard or bouncing balls and poor dribblers let it get away a metre or two; receiving on the half-turn with the stick pointing on
 - [x] Tackles win 37% between touches against 27% at the feet (harness); a strong man shields from behind
+
+### Skill moves and defending (2026-11-23; check: `node tools/dribblelab.js 200`)
+- [x] Moves on Sprint with the ball: step-over (swipe sideways), roulette (up), drag-back (back), feint (tap), knock-on (double tap; pace decides); chained moves get sloppier; the computer uses them too
+- [x] Lab: getting past one defender 0% with no move, 38-48% with a move; a knock-on 45%
+- [x] Defending: your man jockeys near the carrier; contain first then tackle wins 45% against 33% diving in; hold Tackle to close; double tap Switch / Press for a second man; shoulder challenges; fouls from contact (from behind, at speed, a lunge)
+- [ ] Advantage played on
 
 ### M3 The world
 - [x] Seven leagues in seven countries (England, Spain, Italy, Germany, France, Brazil, USA), 72 invented clubs, all

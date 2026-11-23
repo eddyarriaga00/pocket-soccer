@@ -538,8 +538,13 @@
         <li><b>Pass</b>: tap for a weighted pass along the ground toward where the stick points (the open man wins a close call). Hold it for pace: the bar fills, a full bar is driven. Swipe up while holding to loft it; out wide in their half it becomes a cross.</li>
         <li><b>Through</b>: a ball into space for a runner, paced the same way; swipe up for a lofted through ball.</li>
         <li><b>One-two</b>: pass, then press Through while the ball travels (in My Career, Run or Call): he plays it straight back into your run.</li></ul>
+      <div class="lbl">Skill moves (Sprint, with the ball)</div>
+      <ul class="howl"><li><b>Swipe sideways</b>: a step-over that way. <b>Swipe up</b>: a roulette. <b>Swipe back</b>: a drag-back, out of trouble.</li>
+        <li><b>Tap</b>: a body feint. <b>Double tap</b>: knock it past him and run (only if you are quicker).</li>
+        <li>A defender close in front may buy it (your Dribbling against his Defending). Chain them and they get sloppier. Let go of the stick and the ball stays under your sole.</li></ul>
       <div class="lbl">Without the ball</div>
-      <ul class="howl"><li><b>Tackle</b>: get close and tap it. Not from behind!</li><li><b>Slide</b>: a sliding tackle where the stick points. Miss the ball and it’s a foul (maybe a penalty).</li>
+      <ul class="howl"><li><b>Tackle</b>: tap it close to him; hold it to close him down first. Stay goal-side and face him for a moment (your man jockeys on his own) and the tackle is far more likely to work than diving in. Not from behind! Best between his touches, when the ball is away from his feet.</li>
+        <li><b>Double tap Switch or Press</b>: a second man comes to close him down.</li><li><b>Slide</b>: a sliding tackle where the stick points. Miss the ball and it’s a foul (maybe a penalty).</li>
         <li><b>Switch</b> (Kick-off): change to the man nearest the ball. It also switches on its own.</li><li><b>Press</b> (My Career): hold to close the man on the ball down.</li>
         <li><b>Call</b> and <b>Run</b> (My Career): ask your teammate for the ball to your feet, or for a ball in behind. Your teammates do pass to you.</li></ul>
       <div class="lbl">Set pieces</div>

@@ -402,6 +402,39 @@
   }
   /* the stick's part across the goal mouth, -1..1, as the camera sees it */
   function acrossOf(G, p, st) { const gy = goalY(G, p.t), s = Math.sign(gy - p.y) || 1; return clamp((st.x / (st.m || 1)) * 1.25, -1, 1) * (s > 0 ? 1 : 1); }
+  /* ---------- skill moves (the Sprint button with the ball: tap a feint, swipe a step-over that way, swipe back a
+     drag-back, swipe up a roulette, double tap a knock-on). Each moves the ball with the touch system and may unsettle
+     a defender close in front: Dribbling against Defending, worse when moves are chained (FC Mobile's rule). */
+  const MOVES = { feint: { T: 0.32, beat: 0.05, push: 0.7 }, stepover: { T: 0.45, beat: 0.12, push: 1.5 }, dragback: { T: 0.42, beat: 0.06, push: 1.1 }, roulette: { T: 0.55, beat: 0.15, push: 1.4 }, knock: { T: 0.3, beat: 0.02, push: 4.2 } };
+  function skill(G, p, kind, side = 1) {
+    const b = G.ball, M = MOVES[kind]; if (!M || b.owner !== p || p.cd > 0 || (p.act && p.act.k !== 'kick')) return false;
+    const chain = p.lastSkill && G.t - p.lastSkill < 1.6 ? (p.chain || 0) + 1 : 0; p.chain = chain; p.lastSkill = G.t;
+    const f = p.face, fwd = { x: Math.sin(f), y: Math.cos(f) }, rt = { x: -Math.cos(f), y: Math.sin(f) };   // his right
+    let dir = f;
+    if (kind === 'feint') dir = f - side * 0.7;   // shows one way, goes the other
+    else if (kind === 'knock') dir = f + side * 0.35;
+    else if (kind === 'stepover') dir = f + side * 0.75;
+    else if (kind === 'roulette') { dir = f + side * 0.6; }
+    else if (kind === 'dragback') { dir = f + Math.PI; p.face = f + Math.PI; }
+    p.act = { k: 'kick', t: 0, T: M.T, foot: side > 0 ? 'R' : 'L', p: 0.25, fake: true, skill: kind, spin: kind === 'roulette' ? side * Math.PI * 2 / M.T : 0 };
+    p.tch = { u: 0, T: M.T + 0.1, push: M.push * (1 - chain * 0.12), dir };
+    p.cd = 0.35 + chain * 0.15; p.turnSlow = 0; p.goDir = dir; p.goT = G.t + M.T + (kind === 'knock' ? 0.6 : 0.35);
+    if (kind === 'knock') p.burst = G.t + 0.9;
+    /* a knock-on past a man close in front: only pace gets it by him, else it hits him */
+    if (kind === 'knock') {
+      const q = teamOf(G, opp(p.t)).find(o => o.role !== 'GK' && d2(o, p) < 2.6 && ((o.x - p.x) * fwd.x + (o.y - p.y) * fwd.y) > 0.4);
+      if (q && Math.random() < clamp(0.55 - (p.a.pac - q.a.pac) * 0.025, 0.12, 0.85)) { win(G, q, p); G.events.push({ k: 'move', move: kind }); return true; }
+    }
+    /* defenders in front who buy it */
+    for (const q of teamOf(G, opp(p.t))) {
+      if (q.role === 'GK' || q.stun > 0) continue;
+      const dx = q.x - p.x, dy = q.y - p.y, dd = hyp(dx, dy); if (dd > 3.4 || (dx * fwd.x + dy * fwd.y) / (dd || 1) < 0.2) continue;
+      const pr = clamp(0.32 + M.beat + (p.a.dri - q.a.def) * 0.011 - chain * 0.16 + (dd < 1.6 ? 0.08 : 0), 0.06, 0.85);
+      if (Math.random() < pr) { q.stun = 0.38 + p.a.dri * 0.003; q.vx *= 0.3; q.vy *= 0.3; p.st.dr++; p.beat = (p.beat || 0) + 1; G.events.push({ k: 'skill', move: kind }); }
+    }
+    G.events.push({ k: 'move', move: kind });
+    return true;
+  }
   /* a fake shot: the wind-up and no strike; defenders close by may buy it */
   function fakeShot(G, p) {
     p.act = { k: 'kick', t: 0, T: 0.3, foot: 'R', p: 0.5, fake: true };
@@ -542,7 +575,9 @@
     if (own === p) {
       p.hold += dt;
       if (me) return;
-      if (p.next <= 0) { p.next = 0.18 + Math.random() * 0.14; if (p.hold > 0.22 && !p.act && aiOnBall(G, p)) return; }
+      if (p.next <= 0) { p.next = 0.18 + Math.random() * 0.14; if (p.hold > 0.22 && !p.act && aiOnBall(G, p)) return;
+        const fr = teamOf(G, opp(t)).find(o => o.role !== 'GK' && d2(o, p) < 2.6 && ((o.x - p.x) * Math.sin(p.face) + (o.y - p.y) * Math.cos(p.face)) > 0.5);
+        if (fr && !p.act && p.cd <= 0 && Math.random() < 0.1 + p.a.dri * 0.0025) skill(G, p, ['feint', 'stepover', 'stepover', 'roulette', 'dragback', 'knock'][Math.floor(Math.random() * 6)], Math.random() < 0.5 ? -1 : 1); }
       const tg = dribbleTarget(G, p); p.tx = tg.x; p.ty = tg.y; p.want = maxSpd(p) * 0.86;
       return;
     }
@@ -580,12 +615,22 @@
     }
     /* defending: the nearest presses the ball, the next covers, the rest hold the shape and mark */
     const target = own || b;
+    if (own && own.t !== t) { const dd = d2(p, own), gs = ((ownY(G, t) - own.y) * (ownY(G, t) - p.y)) > 0 && Math.abs(ownY(G, t) - p.y) < Math.abs(ownY(G, t) - own.y); p.contain = dd < 3.2 && dd > 0.9 && gs ? (p.contain || 0) + dt : 0; }
     const def = teamOf(G, t).filter(q => q.role !== 'GK').sort((a, c) => d2(a, target) - d2(c, target));
     const gy = ownY(G, t);
     if (def[0] === p) {
       const gx = CX - target.x, g2 = gy - target.y, gl = hyp(gx, g2) || 1, close = own ? 1.1 : 0;
-      p.tx = target.x + gx / gl * close; p.ty = target.y + g2 / gl * close; p.want = maxSpd(p) * (own ? 0.95 : 1);
+      /* the computer contains first: holds a couple of metres off, then steps in (more often against a good dribbler) */
+      const hold = own && own.t !== t && (p.contain || 0) < 0.5 + own.a.dri * 0.004 ? 2.0 : close;
+      p.tx = target.x + gx / gl * hold; p.ty = target.y + g2 / gl * hold; p.want = maxSpd(p) * (own ? 0.95 : 1);
       if (own && own.t !== t && d2(p, own) < 1.4 && p.cd <= 0 && G.phase === 'play' && Math.random() < dt * (depth(G, t, own.y) < 35 ? 1.9 : 1.2)) tackle(G, p, own);
+      return;
+    }
+    /* the second man: called by a double tap on Switch or Press, he closes down too */
+    if (def[1] === p && own && own.t !== t && G.second > G.t && t === 0) {
+      const gx = CX - own.x, g2 = gy - own.y, gl = hyp(gx, g2) || 1;
+      p.tx = own.x + gx / gl * 0.9 + (own.x > p.x ? -0.6 : 0.6); p.ty = own.y + g2 / gl * 0.9; p.want = maxSpd(p);
+      if (d2(p, own) < 1.4 && p.cd <= 0 && Math.random() < dt * 1.6) tackle(G, p, own);
       return;
     }
     if (def[1] === p && own && depth(G, t, own.y) < 45) {
@@ -676,12 +721,17 @@
     if (p.cd > 0 || !c) return;
     p.cd = 0.9; p.act = { k: 'kick', t: 0, T: 0.3, foot: 'R', p: 0.3 };
     const behind = ((c.x - p.x) * Math.sin(c.face) + (c.y - p.y) * Math.cos(c.face)) > 0.3;   // coming from behind him
+    /* a man who contained him first (facing him, goal-side, at a distance for a beat) times it better than one who dives in */
+    const cont = (p.contain || 0) > 0.55, dive = hyp(p.vx, p.vy) > 4.5 && !cont;
     const lo = c === G.ball.owner ? (c.loose || 0) : 0, gap = lo > 0.8 ? 1.5 : lo > 0.45 ? 1.2 : lo < 0.12 ? 0.82 : 1;
-    const pr = clamp(0.42 * Math.pow((p.a.def + 10) / (c.a.dri + 10), 1.6) * (lunge ? 1.25 : 1) * (c.sprint ? 0.85 : 1) * (behind ? 0.78 - c.a.phy * 0.003 : 1) * gap, 0.08, 0.9);
+    const pr = clamp(0.42 * Math.pow((p.a.def + 10) / (c.a.dri + 10), 1.6) * (lunge ? 1.25 : 1) * (c.sprint ? 0.85 : 1) * (behind ? 0.78 - c.a.phy * 0.003 : 1) * gap * (cont ? 1.3 : dive ? 0.8 : 1) * (c.act && c.act.skill ? 0.45 : 1), 0.08, 0.9);
     const ok = d2(p, c) < 1.7 && Math.random() < pr;
     const tl = G.tkLog || (G.tkLog = { gap: [0, 0], feet: [0, 0] }), slot = lo > 0.45 ? 'gap' : 'feet'; tl[slot][1]++; if (ok) tl[slot][0]++;
-    if (ok) { win(G, p, c); p.st.tk++; return; }
-    if (Math.random() < (behind ? 0.3 : 0.08)) foul(G, p, c);
+    const cl = G.tkLog.cd || (G.tkLog.cd = { cont: [0, 0], dive: [0, 0] }); if (cont) { cl.cont[1]++; if (ok) cl.cont[0]++; } else if (dive) { cl.dive[1]++; if (ok) cl.dive[0]++; }
+    if (ok) { win(G, p, c); p.st.tk++; p.contain = 0; return; }
+    /* a miss: a foul from the contact, not the dice: from behind, at speed, or a lunge */
+    const fp = (behind ? 0.32 : 0.05) + clamp((hyp(p.vx, p.vy) - 3.5) / 12, 0, 0.22) + (lunge ? 0.05 : 0) - (cont ? 0.03 : 0);
+    if (d2(p, c) < 1.5 && Math.random() < fp) foul(G, p, c, behind || hyp(p.vx, p.vy) > 6);
   }
   function slide(G, p, dx, dy) {
     if (p.cd > 0) return;
@@ -749,6 +799,7 @@
     }
     const has = b.owner === p, near = !b.owner && d2(b, p) < 2.0 && b.z < 2.2;
     p.close = has && !steering;   // stick let go: the ball under his sole
+    if (b.owner && b.owner.t !== p.t) { const own = b.owner, dd = d2(p, own), gy = ownY(G, p.t), gs = Math.abs(gy - p.y) < Math.abs(gy - own.y); p.contain = dd < 3.2 && dd > 0.9 && gs && hyp(p.vx, p.vy) < 4.5 ? (p.contain || 0) + dt : 0; } else p.contain = 0;
     const myTeamHas = possTeam(G) === p.t;
     const dir = steering ? { x: st.x / st.m, y: st.y / st.m } : { x: Math.sin(p.face), y: Math.cos(p.face) };
     /* restarts: the taker waits for the user */
@@ -765,9 +816,11 @@
       if (G.phase !== 'play') continue;
       if (!has && (e.k === 'through' || ((e.k === 'run' || e.k === 'call') && !e.up)) && G.give && G.give.from === p && askBack(G)) continue;
       if (G.give && G.give.to === p && !has && e.k === 'through' && askBack(G)) continue;   // Kick-off: control moved to the receiver
+      if (e.k === 'skill') { if (has) skill(G, p, e.move, e.side || 1); continue; }
       if (has || (near && (e.k === 'shoot' || e.k === 'pass' || e.k === 'through'))) { userKick(G, p, e, dir); continue; }
-      if (e.k === 'tackle' && !e.up) { const c = b.owner; if (c && c.t !== p.t && d2(c, p) < 2.4) { p.face = Math.atan2(c.x - p.x, c.y - p.y); tackle(G, p, c, true); } else { p.act = { k: 'kick', t: 0, T: 0.3, foot: 'R', p: 0.3 }; } }
+      if (e.k === 'tackle' && !e.up) { const c = b.owner; if (c && c.t !== p.t && d2(c, p) < 2.4) { p.face = Math.atan2(c.x - p.x, c.y - p.y); tackle(G, p, c, true); } }   // further away, holding it closes him down (Press)
       if (e.k === 'slide' && !e.up) slide(G, p, dir.x, dir.y);
+      if (e.k === 'second' && !myTeamHas) { G.second = G.t + 3; G.events.push({ k: 'call' }); }
       if (e.k === 'switch' && !e.up && G.mode === 'team') switchPlayer(G);
       if ((e.k === 'call' || e.k === 'run') && !e.up && myTeamHas) { G.call = { t: G.t + 1.6, run: e.k === 'run' }; p.callT = G.t; G.events.push({ k: 'call' }); }
       if (e.k === 'shoot' && e.up && near) userKick(G, p, e, dir);
@@ -941,11 +994,15 @@
       if (p.act && p.act.k === 'slide') { const k = Math.max(0, 1 - p.act.t / p.act.T); p.x += p.slideV.x * k * dt; p.y += p.slideV.y * k * dt; p.vx = p.slideV.x * k; p.vy = p.slideV.y * k; slideContact(G, p); continue; }
       if (p.act && p.act.k === 'fall') { p.vx *= 0.9; p.vy *= 0.9; p.x += p.vx * dt; p.y += p.vy * dt; continue; }
       if (p.dive) { p.x += p.vx * dt; continue; }
-      const kickWind = p.act && p.act.k === 'kick' && p.act.t < p.act.T * 0.6;
+      const kickWind = p.act && p.act.k === 'kick' && p.act.t < p.act.T * 0.6 && !p.act.skill;
+      /* after a move he goes where he put the ball, whatever the stick or the AI wanted a moment ago */
+      if (p.goT > G.t && p.goDir != null && G.ball.owner === p) { p.tx = p.x + Math.sin(p.goDir) * 4; p.ty = p.y + Math.cos(p.goDir) * 4; p.want = maxSpd(p); }
       let dx = p.tx - p.x, dy = p.ty - p.y; const dl = hyp(dx, dy);
       let top = Math.min(p.want || 0, maxSpd(p) * (G.ball.owner === p ? 0.86 + p.a.dri * 0.0012 : 1)) * (p.stun > 0 ? 0.4 : 1) * (kickWind ? 0.35 : 1);
       if (p.sprint && p.ctl) top = Math.min(maxSpd(p) * (G.ball.owner === p ? 0.95 : 1), Math.max(top, maxSpd(p) * 0.6));
       if (p.turnSlow > 0) { p.turnSlow -= dt; top *= 0.55; }
+      if (p.burst > G.t) top = Math.max(top, maxSpd(p) * 1.04);   // the knock-on: away after it
+      if (p.act && p.act.skill) top *= p.act.skill === 'knock' ? 1 : 0.8;
       if (G.ball.owner === p && p.tch) top *= 0.95 + 0.05 * Math.cos(Math.PI * 2 * p.tch.u);   // a touch costs a stride
       const want = dl < 0.12 ? 0 : Math.min(top, dl * 2.6);
       const wx = dl ? dx / dl * want : 0, wy = dl ? dy / dl * want : 0;
@@ -958,6 +1015,10 @@
       let fa = null;
       if (v > 0.8) fa = Math.atan2(p.vx, p.vy);
       else if (G.ball.owner !== p) fa = Math.atan2(G.ball.x - p.x, G.ball.y - p.y);
+      if (p.act && p.act.spin) p.face += p.act.spin * dt;
+      /* jockeying: a man you control near their carrier faces the ball and shuffles instead of turning his back */
+      const own = G.ball.owner;
+      if (p.ctl && own && own.t !== p.t && d2(p, own) < 5 && fa !== null) { fa = Math.atan2(own.x - p.x, own.y - p.y); }
       if (fa !== null && !(p.act && p.act.k === 'kick')) { let df = fa - p.face; while (df > Math.PI) df -= Math.PI * 2; while (df < -Math.PI) df += Math.PI * 2; p.face += df * Math.min(1, dt * (v > 0.8 ? 9 : 4) * (0.72 + (p.a.pac + p.a.dri) / 400)); }
       if (p.sprint && v > 6) p.stamina = Math.max(0, (p.stamina ?? 1) - dt * 0.02); else p.stamina = Math.min(1, (p.stamina ?? 1) + dt * 0.01);
     }
@@ -965,7 +1026,13 @@
     const ps = G.ps;
     for (let i = 0; i < ps.length; i++) { const a = ps[i]; if (a.bench || a.off) continue;
       for (let j = i + 1; j < ps.length; j++) { const c = ps[j]; if (c.bench || c.off) continue; const dx = c.x - a.x, dy = c.y - a.y, dd = dx * dx + dy * dy;
-        if (dd < 0.5 && dd > 1e-6) { const d = Math.sqrt(dd), k = (0.71 - d) / d * 0.5; a.x -= dx * k; a.y -= dy * k; c.x += dx * k; c.y += dy * k; } } }
+        if (dd < 0.5 && dd > 1e-6) { const d = Math.sqrt(dd), k = (0.71 - d) / d * 0.5; a.x -= dx * k; a.y -= dy * k; c.x += dx * k; c.y += dy * k;
+          /* shoulder to shoulder with the carrier, side by side: the stronger man can take it off him */
+          const own = G.ball.owner, o2 = own === a ? c : own === c ? a : null;
+          if (o2 && o2.t !== own.t && G.phase === 'play' && o2.cd <= 0 && o2.role !== 'GK') {
+            const side = Math.abs((o2.x - own.x) * Math.cos(own.face) - (o2.y - own.y) * Math.sin(own.face)) / (d || 1) > 0.6;
+            if (side && Math.random() < 0.016 * (1 + (o2.a.phy - own.a.phy) / 40)) { o2.cd = 0.9; o2.st.tk++; win(G, o2, own); G.events.push({ k: 'shoulder' }); }
+          } } } }
   }
   function slideContact(G, p) {
     if (p.slideHit) return;
@@ -989,10 +1056,11 @@
       const v = hyp(o.vx, o.vy), T_ = o.tch || (o.tch = { u: 0, T: 0.4, push: 0, dir: o.face });
       const close = (o.close && o === G.ctl && G.userOn) || v < 1.2;
       let turn = T_.dir - o.face; while (turn > Math.PI) turn -= Math.PI * 2; while (turn < -Math.PI) turn += Math.PI * 2;
-      if (Math.abs(turn) > 1.0 && T_.u > 0.3 && T_.u < 1) { T_.u = 1; o.turnSlow = 0.22 + (1 - o.a.dri / 100) * 0.2; }
+      const moving = o.goT > G.t && o.goDir != null;
+      if (Math.abs(turn) > 1.0 && T_.u > 0.3 && T_.u < 1 && !(o.act && o.act.skill) && !moving) { T_.u = 1; o.turnSlow = 0.22 + (1 - o.a.dri / 100) * 0.2; }
       T_.u += dt / T_.T;
       if (T_.u >= 1) {
-        T_.u = T_.u % 1; T_.dir = o.face;
+        T_.u = T_.u % 1; T_.dir = moving ? o.goDir : o.face;
         const sp = Math.min(1, v / maxSpd(o));
         T_.push = close ? 0 : (0.3 + sp * sp * 1.7) * (1.3 - o.a.dri * 0.006) * (o.sprint ? 1.3 : 1);
         T_.T = clamp(0.3 + sp * 0.2 + (1 - o.a.dri / 100) * 0.14, 0.3, 0.62);
@@ -1228,5 +1296,5 @@
     G.ff = was;
   }
 
-  PS.Match = { create, skipWalk: endWalk, step, resume, result, fastForward, rating, minute, clock, FORMS, possTeam, goalY, depth, d2, aimPreview, _shot: { shotPlan, sweet, timingOf, shoot } };
+  PS.Match = { create, skipWalk: endWalk, skill, _tackle: (G, p, c, l) => tackle(G, p, c, l), step, resume, result, fastForward, rating, minute, clock, FORMS, possTeam, goalY, depth, d2, aimPreview, _shot: { shotPlan, sweet, timingOf, shoot } };
 })();

@@ -5,7 +5,10 @@
                        after a pass, Through (or Run, in a career) while it travels: a one-two, straight back into your run
      a teammate's (in a career): —  Call (for the pass)  Run (in behind, for a through ball)  Sprint
      theirs:           Tackle  Switch (or Press, in a career: hold to close him down)  Slide  Sprint
-   Keys too: arrows or WASD to move, Space = the big button, J / K = the two others, Shift = sprint, E = switch. */
+   Skill moves on Sprint with the ball: swipe sideways a step-over, back a drag-back, up a roulette; tap a feint, double
+   tap a knock-on. Defending: hold Tackle to close him down; double tap Switch / Press for a second man.
+   Keys too: arrows or WASD to move, Space = the big button, J / K = the two others, Shift = sprint, E = switch,
+   F feint, Z / X step-overs, R roulette, V drag-back, G knock-on. */
 (() => {
   'use strict';
   const PS = window.PS = window.PS || {};
@@ -35,7 +38,7 @@
       const b = btn[s];
       b.addEventListener("pointerdown", e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) { /* a synthetic pointer */ } press(s, e.clientX, e.clientY); });
       /* a swipe while Shoot is held picks the shot: up a chip, down a finesse, sideways a fake */
-      b.addEventListener('pointermove', e => { const h = held[s]; if (!h || h.x0 == null) return; const dx = e.clientX - h.x0, dy = e.clientY - h.y0;
+      b.addEventListener('pointermove', e => { if (s === 'D') return skillSwipe(e); const h = held[s]; if (!h || h.x0 == null) return; const dx = e.clientX - h.x0, dy = e.clientY - h.y0;
         /* Pass or Through held: a swipe up lofts it */
         if (h.k === 'pass' || h.k === 'through') { const lob = dy < -26 && -dy > Math.abs(dx); if (lob !== !!h.lob) { h.lob = lob; if (navigator.vibrate) try { navigator.vibrate(8); } catch (x) { /* none */ } } return; }
         if (h.k !== 'shoot') return;
@@ -47,7 +50,8 @@
     }
     /* keys: Space shoots (U a chip, I a finesse, hold them like Space), J pass, K through, Shift sprint, E switch */
     const KEYS = { Space: 'A', KeyU: 'A', KeyI: 'A', KeyJ: 'B', KeyK: 'C', ShiftLeft: 'D', ShiftRight: 'D' };
-    addEventListener('keydown', e => { if (!G || e.repeat) return; const k = e.code; keys[k] = true; const s = KEYS[k]; if (s) { press(s); if (k === 'KeyU' || k === 'KeyI') { const h = held.A; if (h && h.k === 'shoot') { h.type = k === 'KeyU' ? 'chip' : 'finesse'; G.input.charge && (G.input.charge.type = h.type); } } e.preventDefault(); } if (k === 'KeyE' && G) G.input.q.push({ k: 'switch', up: false }); keyStick(); });
+    const SKK = { KeyF: ['feint', 1], KeyZ: ['stepover', -1], KeyX: ['stepover', 1], KeyR: ['roulette', 1], KeyV: ['dragback', 1], KeyG: ['knock', 1] };
+    addEventListener('keydown', e => { if (!G || e.repeat) return; const k = e.code; keys[k] = true; if (SKK[k]) { doSkill(...SKK[k]); e.preventDefault(); return; } const s = KEYS[k]; if (s) { press(s); if (k === 'KeyU' || k === 'KeyI') { const h = held.A; if (h && h.k === 'shoot') { h.type = k === 'KeyU' ? 'chip' : 'finesse'; G.input.charge && (G.input.charge.type = h.type); } } e.preventDefault(); } if (k === 'KeyE' && G) G.input.q.push({ k: 'switch', up: false }); keyStick(); });
     addEventListener('keyup', e => { if (!G) return; keys[e.code] = false; const s = KEYS[e.code]; if (s) release(s); keyStick(); });
   };
   function keyStick() {
@@ -65,14 +69,28 @@
     return { A: 'Tackle', B: G.mode === 'team' ? 'Switch' : 'Press', C: 'Slide' };
   }
   const KIND = { Shoot: 'shoot', Pass: 'pass', Throw: 'pass', 'Throw long': 'through', Cross: 'pass', Through: 'through', Call: 'call', Run: 'run', Tackle: 'tackle', Switch: 'switch', Slide: 'slide', Press: 'press' };
+  /* skill moves on the Sprint button while you have the ball: a swipe is a move (sideways a step-over that way, back a
+     drag-back, up a roulette), a quick tap a body feint, two quick taps a knock-on */
+  let sk = null, lastTapD = 0, lastTapB = 0;
+  const onBall = () => G && G.ctl && G.ball.owner === G.ctl;
+  const doSkill = (move, side) => { if (!onBall()) return; G.input.q.push({ k: 'skill', move, side }); if (navigator.vibrate) try { navigator.vibrate(12); } catch (x) { /* none */ } };
+  function skillSwipe(e) {
+    if (!sk || sk.done || !onBall()) return;
+    const dx = e.clientX - sk.x, dy = e.clientY - sk.y; if (Math.hypot(dx, dy) < 28) return;
+    sk.done = true;
+    if (Math.abs(dx) > Math.abs(dy)) doSkill('stepover', dx > 0 ? 1 : -1); else doSkill(dy < 0 ? 'roulette' : 'dragback', dx >= 0 ? 1 : -1);
+  }
   function press(s, x, y) {
     if (!G) return;
-    if (s === 'D') { G.input.sprint = true; btn.D.classList.add('dn'); return; }
+    if (s === 'D') { G.input.sprint = true; btn.D.classList.add('dn'); sk = { x, y, t0: performance.now(), done: false }; return; }
+    /* defending: a double tap on Switch or Press sends a second man to close him down */
+    if (s === 'B' && (btn.B.dataset.job === 'Switch' || btn.B.dataset.job === 'Press')) { const now = performance.now(); if (now - lastTapB < 350) G.input.q.push({ k: 'second', up: false }); lastTapB = now; }
     const job = btn[s].dataset.job || ''; if (!job) return;
     const k = KIND[job];
     held[s] = { k, t0: performance.now(), x0: x, y0: y, type: 'drive' };
     btn[s].classList.add('dn');
     if (k === 'press') { G.input.press = true; return; }
+    if (k === 'tackle') G.input.press = true;   // hold Tackle: close him down, then the tackle
     if (k === 'tackle' || k === 'switch' || k === 'slide' || k === 'call' || k === 'run') G.input.q.push({ k, up: false });
     if (k === 'shoot') { power.hidden = false; shint.hidden = false; G.input.charge = { t0: held[s].t0, type: 'drive' }; }
     /* passes take their pace from the hold: the bar shows it, a quick tap is the weighted one */
@@ -81,11 +99,16 @@
   }
   function release(s) {
     if (!G) return;
-    if (s === 'D') { G.input.sprint = false; btn.D.classList.remove('dn'); return; }
+    if (s === 'D') {
+      G.input.sprint = false; btn.D.classList.remove('dn');
+      const now = performance.now();
+      if (sk && !sk.done && now - sk.t0 < 220 && onBall()) { if (now - lastTapD < 380) doSkill('knock', 1); else doSkill('feint', 1); lastTapD = now; }
+      sk = null; return;
+    }
     btn[s].classList.remove('dn');
     const h = held[s]; held[s] = null; if (!h) return;
     const dur = (performance.now() - h.t0) / 1000;
-    if (h.k === 'press') { G.input.press = false; return; }
+    if (h.k === 'press' || h.k === 'tackle') { G.input.press = false; if (h.k === 'press') return; }
     if (h.k === 'shoot') {
       /* the strike: how the release was timed against the sweet spot, called out over the button */
       const pv = PS.Match.aimPreview(G);
