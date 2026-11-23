@@ -138,3 +138,58 @@ perception more than physics tweaks did.
 a net that balloons, a timing call (PERFECT / GOOD / EARLY / OVERHIT), a thump on a perfect strike.*
 Sources: [arXiv: impact feel in action games](https://arxiv.org/pdf/2011.09201), [Rutgers: game feel lecture](https://sakai.rutgers.edu/access/content/group/0a4e9ee5-ee55-4b15-b778-52a05786e504/lectures/04_gamefeel.pdf),
 [Wikipedia: game feel](https://Www.wikipedia.org/wiki/Game_feel).
+
+## The next build (2026-11-23): models, social, better play
+
+**The sister games, read from their code.** PocketBasketball (`bf1c80f`): the pocket player with a stepped look
+builder, face sets for the moment (happy, stern, tired), `R.portrait()` headshots and full bodies, walkout, rival
+face-off, cutscenes, three cameras and a radar, replays and a video highlight reel, a two-voice recorded booth;
+`social()` (followers, hype, one post a game, callouts, media day, polls and trends, messages, brand partners), a
+story for every game, chemistry, abilities, contracts, awards, accounts on Firebase. PocketFootball (`2f097d2`):
+`media.js` (post-game reactions from fans of both teams, analysts, reporters, teammates, rival and coach, loudness
+from the grade, lines dealt like cards so none repeats in a week, the podium, callouts), weekly events, endorsements,
+draft board, contracts, awards night; its own helmeted figures, so the basketball body stays PocketSoccer's.
+
+**FC IQ (EA FC 25).** Player Roles, each with Focuses, decide how every player moves with and without the ball; an
+activity map shows each role's zones; players out of a familiar role play worse.
+→ *Roles and styles for PocketSoccer's AI (NEXT.md A4).*
+Sources: [EA: FC IQ deep dive](https://www.ea.com/games/ea-sports-fc/fc-25/news/pitch-notes-fc-25-fc-iq-deep-dive),
+[Dexerto: FC IQ explained](https://dexerto.com/ea-sports-fc/what-is-fc-iq-in-ea-fc-25-new-feature-explained-2822024),
+[Charlie Intel: FC IQ tactics](https://charlieintel.com/ea-sports-fc/what-is-fc-iq-in-ea-fc-25-tactics-overhaul-explained-333068).
+
+**Pitch control and space.** Each player's influence on each point of the pitch, modelled as a Gaussian stretched by
+his velocity and distance to the ball, gives how much of the pitch each team controls; weighted by the value of each
+zone it scores space, and runs can be judged by the value they reach or create (off-ball expected threat).
+→ *Off-ball runs and the carrier's choices scored by pitch control × pitch value (NEXT.md A4).*
+Sources: [Frontiers: Space and Control in Soccer](https://www.frontiersin.org/articles/10.3389/fspor.2021.676179),
+[PMC copy](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8322620/), [Soccermatics: off-ball runs](https://soccermatics.readthedocs.io/en/main/lesson7/OffBallRuns.html),
+[arXiv: vision-aware pitch control](https://www.arxiv.org/pdf/2602.18519), [Fernández and Bornn: Wide Open Spaces](https://www.scribd.com/document/536550379/Wide-Open-Spaces).
+
+**Dribbling and defending on a phone (EA FC Mobile).** Turn speed from height and agility; a dribbler slows between
+touches so a defender can stay close; skill moves on a tap or swipe of the Sprint & Skill button, each one in a row
+slower and looser; face-up dribbling; the stick alone keeps a tactical marking distance, hold to tackle, double tap
+to send a second man to press; a hard tackle.
+→ *NEXT.md A1, A2, A5.* Sources: [EA: FC Mobile gameplay deep dive](https://www.ea.com/en/games/ea-sports-fc/fc-mobile/news/fc-mobile-gameplay-deep-dive),
+[FIFPlay: FC Mobile controls](https://fifplay.com/fc-mobile-controls), [EA: FC Mobile PlayStyles](https://www.ea.com/en/games/ea-sports-fc/fc-mobile/news/playstyles-deep-dive).
+
+**Defending (EA FC 24).** Jockey/contain keeps the defender close and forces errors; a missed standing tackle leaves
+a big gap; slides are a last resort; shoulder challenges often end in fouls.
+Sources: [VideoGamer: FC 24 defending](https://videogamer.com/guides/fc-24-how-to-defend-like-a-pro),
+[Team Gullit: tackling](https://teamgullit.com/ea-sports-fc/tackling), [Prima: advanced defending](https://primagames.com/gaming/how-to-use-advanced-defending-in-ea-sports-fc-24).
+
+**What makes it feel right.** Reviews reward a ball and a player that answer at once and animations that do not lock
+you in; first touch (from the pass's pace, spin and the receiver) and player switching decide whether a game feels
+precise or random; EA's FC 26 notes target animation lock-in and trapping.
+Sources: [EA: FC 26 gameplay deep dive](https://www.ea.com/games/ea-sports-fc/fc-26/news/pitch-notes-fc26-gameplay-deep-dive),
+[GamesRadar: FIFA 14 review](https://www.gamesradar.com/uk/fifa-14-review), [Bleacher Report: FIFA 13](https://bleacherreport.com/articles/1345553-fifa-soccer-13-gameplay-review-and-features-for-hit-video-game),
+[Game Informer: FC 26](https://www.gameinformer.com/review/ea-sports-fc-26/an-immersive-step-forward).
+
+**Social media in a career (EA FC 25).** EA added a feed reacting to your save (an invented-feeling transfer insider
+among it) and restored walk-outs and lineups after players asked. Players called the feed filler: repetitive stock
+lines, wrong text, and "popularity on social media gains you nothing"; they asked for media that moves morale, fan
+reaction and the board.
+→ *Every social number in PocketSoccer moves something in the career (NEXT.md Track C).*
+Sources: [GGRecon: FC 25 devs on social media in career](https://www.ggrecon.com/articles/ea-fc-25-devs-talk-the-women-s-game-live-start-points-and-adding-social-media-trolling-to-career-mode/),
+[EA forums: player career assessment](https://forums.ea.com/discussions/fc-25-game-modes-en/my-assessment-of-player-career-mode-/7865091),
+[EA: FC 25 community update](https://www.ea.com/games/ea-sports-fc/fc-25/news/fc-25-community-update),
+[Charlie Intel: FC 25 career features](https://charlieintel.com/ea-sports-fc/all-new-features-in-ea-fc-25-career-mode-333031).

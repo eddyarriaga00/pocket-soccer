@@ -55,6 +55,8 @@ Update this file after every item.
       camera shake, slow motion at the line, rippling net, goal call (where, distance, km/h), miss calls
 - [x] tools/shotlab.js: goal / saved / off target by type, timing and distance
 
+**The next big build is planned in [NEXT.md](NEXT.md)** (2026-11-23: the sister games' models and social media, and far better play). Its milestones replace M1 below.
+
 ### M1 Feel (next)
 - [ ] Play it on a real phone: stick size, button spacing, shot power curve, pass assist cone
 - [ ] Skill moves (a button for a step-over / roulette), first-time shots and volleys on demand
