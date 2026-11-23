@@ -120,7 +120,7 @@
      shoulders filled in, a collar round the neck */
   if (arm) { float slv = kSl > 0.5 ? 0.86 : 0.36; if (at < slv) { vRegion = 1.0; cuff = at > slv - 0.045; } }
   else if (vRegion < 0.5 && vK.y > 0.95 && vK.y < 1.392) { vRegion = 1.0; }
-  bool collar = vRegion > 0.5 && vRegion < 1.5 && !arm && vK.y > 1.372;
+  bool collar = vRegion > 0.5 && vRegion < 1.5 && !arm && vK.y > 1.372 && abs(vK.x) < 0.05;
   /* socks to just under the knee, over shin pads */
   if (vRegion < 0.5 && !arm && vK.y < 0.772) { vRegion = 4.0; }
   vec3 rc = vRegion < 0.5 ? cSkin : vRegion < 1.5 ? cJersey : vRegion < 2.5 ? cShorts : vRegion < 3.5 ? cBoot : cSock;
@@ -153,7 +153,7 @@
   if (bot) rc *= mix(0.84, 1.0, smoothstep(0.86, 0.98, vK.y));
   vec4 diffuseColor = vec4( rc, opacity );`);
     };
-    m.customProgramCacheKey = () => 'ps-kit3';
+    m.customProgramCacheKey = () => 'ps-kit4';
     return (MATS[key] = m);
   }
 
@@ -235,6 +235,10 @@
     for (let i = 0; i < kc.count; i++) { const r = kc.getX(i), c = cOf[vv[i]] || (r < 0.5 ? hairC : r < 1.5 ? white : dark); cl[i * 3] = c.r; cl[i * 3 + 1] = c.g; cl[i * 3 + 2] = c.b; }
     fg.setAttribute('color', new T.BufferAttribute(cl, 3));
     const fm = new T.SkinnedMesh(fg, new T.MeshLambertMaterial({ vertexColors: true })); fm.frustumCulled = false; bodyMesh.parent.add(fm);
+    /* the faces for the moment (the model's own parts, as PocketBasketball wears them): eyes shut for a blink, a yell,
+       a grin, a scowl, heavy eyes */
+    { const rest = base.filter(v => v !== mouthV);
+      fm.userData.sets = { open: fg.index, shut: setOf(base.concat(31)), yell: setOf(base.concat(eyeV, 23)), happy: setOf(rest.concat(46, 36)), stern: setOf(rest.concat(47, 37)), tired: setOf(rest.concat(48, 38)) }; }
     fm.position.copy(bodyMesh.position); fm.quaternion.copy(bodyMesh.quaternion); fm.scale.copy(bodyMesh.scale); fm.bind(bodyMesh.skeleton, bodyMesh.bindMatrix);
     /* the number and name on the back, a crest and a small number on the front */
     const lum = c => { const x = parseInt(String(c).slice(1), 16); return (x >> 16) * 0.3 + ((x >> 8) & 255) * 0.59 + (x & 255) * 0.11; };
@@ -256,7 +260,7 @@
     const B = n => bones[bk(n)];
     const leg = s => ({ th: B(`DEF-thigh.${s}`), sh: B(`DEF-shin.${s}`), ft: B(`DEF-foot.${s}`), toe: B(`DEF-toe.${s}`) });
     const arm = s => ({ up: B(`DEF-upper_arm.${s}`), fore: B(`DEF-forearm.${s}`), hand: B(`DEF-hand.${s}`) });
-    return { root, body, mixer, act, bones, sc, L: leg('L'), R: leg('R'), aL: arm('L'), aR: arm('R'), spine: B('DEF-spine.002'), head: B('DEF-head'), hips: B('DEF-hips'), gph: Math.random() };
+    return { root, body, mixer, act, bones, sc, face: fm, blink: 2 + Math.random() * 4, L: leg('L'), R: leg('R'), aL: arm('L'), aR: arm('R'), spine: B('DEF-spine.002'), head: B('DEF-head'), hips: B('DEF-hips'), gph: Math.random() };
   }
 
   /* ---------- per frame ---------- */
@@ -288,6 +292,13 @@
   function update(m, p, dt) {
     m.root.position.set(p.x, 0, p.z);
     m.root.rotation.y = p.face;
+    if (m.face && m.face.userData.sets) {
+      m.blink -= dt; const S = m.face.userData.sets;
+      let want = p.mood && S[p.mood] ? p.mood : 'open';
+      if (want === 'open' && m.blink < 0.12) want = 'shut';
+      if (m.blink < 0) m.blink = 2.5 + Math.random() * 4;
+      if (m.faceNow !== want) { m.face.geometry.setIndex(S[want]); m.faceNow = want; }
+    }
     const a = p.act || null, k = a ? Math.min(1, a.t / a.T) : 0;
     let lean = 0, bank = 0, y = p.y || 0, roll = 0, drop = 0;
     if (dt > 0) {
@@ -378,5 +389,36 @@
     if (p.sad) for (const [ar, sd] of [[m.aL, -1], [m.aR, 1]]) aim(ar.up, ar.fore, dirOf(f, sd * 0.4, 0.5, 0.6), 0.6);
   }
 
-  PS.Model = { load, ready: () => !!TPL, player, update, autoLook, tpl: () => TPL };
+  /* A picture of a player from the 3D model (PocketBasketball's R.portrait, in metres): a headshot (o.close) or the
+     whole body (o.body, o.back for the back of the shirt), any kit, on a transparent background, as a data URL. One
+     off-screen renderer draws every picture (a squad of headshots would run out of WebGL contexts otherwise), and
+     each picture is kept, so a face is drawn once. */
+  let PR = null; const PICS = new Map();
+  function portrait(d, kit, size, o) {
+    if (!TPL) return null;
+    o = o || {};
+    const key = [d.name, d.num, d.skin, JSON.stringify(d.look || ''), kit.c1, kit.c2, kit.pat, size, o.body ? 1 : 0, o.back ? 1 : 0, o.mood || ''].join('|');
+    if (PICS.has(key)) return PICS.get(key);
+    try {
+      const Wd = size || 160, Hh = o.body ? Math.round(Wd * 1.6) : Wd;
+      if (!PR) { const cv = document.createElement('canvas'); PR = new T.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true, alpha: true }); PR.setPixelRatio(1); PR.outputColorSpace = T.SRGBColorSpace; }
+      PR.setSize(Wd, Hh, false); PR.setClearColor(0x000000, 0);
+      const sc = new T.Scene();
+      sc.add(new T.HemisphereLight(0xffffff, 0x303034, 1.2)); const k = new T.DirectionalLight(0xffffff, 0.9); k.position.set(2, 4, o.back ? -6 : 6); sc.add(k);
+      const rim = new T.DirectionalLight(0xffffff, 0.35); rim.position.set(-3, 2, o.back ? 5 : -5); sc.add(rim);
+      const m = player(d, kit); sc.add(m.root);
+      if (o.mood && m.face && m.face.userData.sets[o.mood]) m.face.geometry.setIndex(m.face.userData.sets[o.mood]);
+      m.act.Idle_Loop.time = 0.5; m.mixer.update(0.3); m.root.updateMatrixWorld(true);
+      const H = d.ht || 1.82, c = new T.PerspectiveCamera(28, Wd / Hh, 0.05, 40);
+      if (o.body) { const z = o.back ? -1 : 1; c.position.set(0.45 * z, H * 0.55, 4.6 * z); c.lookAt(0, H * 0.5, 0); }
+      else { const hp = m.head.getWorldPosition(new T.Vector3()); hp.y += 0.11; c.position.set(hp.x + 0.08, hp.y + 0.04, hp.z + (o.wide ? 1.35 : 1.05)); c.lookAt(hp); }
+      PR.render(sc, c);
+      const url = PR.domElement.toDataURL('image/png');
+      if (m.face) m.face.geometry.dispose();
+      if (PICS.size > 200) PICS.clear();
+      PICS.set(key, url);
+      return url;
+    } catch (e) { console.warn('portrait', e); return null; }
+  }
+  PS.Model = { load, ready: () => !!TPL, player, update, autoLook, portrait, tpl: () => TPL };
 })();

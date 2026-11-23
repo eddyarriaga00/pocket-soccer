@@ -242,25 +242,33 @@ Port the basketball `social()` state and the football `media.js` writing engine,
 
 ---
 
-## 5. Order of work
+## 5. Order of work (the owner, 2026-11-23: "easiest to hardest")
 
-| # | Milestone | Main pieces | Proof |
+The owner's answers: reuse basketball's commentary voices and every line that fits; share the Firebase accounts with
+football and basketball; the world grows to many leagues, international, with a story like the other games.
+
+| # | Step | From | Proof |
 |---|---|---|---|
-| 1 | **Feel the ball** | A1 dribble touches and first touch, A3 pass power and receivers, A7 player-lock camera | screenshot sequences, input tests, fps |
-| 2 | **Beat your man, stop your man** | A2 skill moves, A5 user contain/second man, A5 fouls and cards | dribble lab, tackle lab, frame sheets |
-| 3 | **A team that plays** | A4 roles, styles, pitch-control runs; A5 the block and the trap; A6 set pieces, subs, stamina | harness per-90 numbers, invariants |
-| 4 | **The player** | B1 builder, B2 faces, B3 portraits, B4 kits, B5 walkout and celebrations | builder sheets at 3 sizes, portrait sheet |
-| 5 | **Social** | Track C in full | no-repeat test, effects table |
-| 6 | **Career** | Track D: story, business, cups and country, training, accounts | long career run, text check |
-| 7 | **Sound and show** | B6 booth, crowd songs, replays and the highlight reel | smoke with audio, reel export |
+| 1 | **The booth**: basketball's two voices and every line that fits soccer, plus new soccer lines recorded in the same voices (tools/voice.py, shared clip cache) | B6 | the pack builds, calls fire in a match |
+| 2 | **Cameras and radar**: Broadcast, Player lock, Tele; a radar | A7 | screenshots of each |
+| 3 | **Match details**: stoppage time, red cards, an away kit when colours clash, a referee | A5, A6, B4 | harness, screenshots |
+| 4 | **Faces and celebrations**: faces for the moment, a signature celebration | B2, B5 | frame sheet |
+| 5 | **Portraits**: headshots and full bodies from the 3D model | B3 | portrait sheet |
+| 6 | **Social media** in full | C | no-repeat test, effects table |
+| 7 | **A story for every match** and the news | D | long career run |
+| 8 | **Accounts** on the shared Firebase project | D | sign-in test |
+| 9 | **The world**: many leagues in many countries, a domestic cup, a continental cup, the national team and tournaments, transfers between leagues | D | season sims |
+| 10 | **The road in and the story**: paths into the game, a rival, cutscenes, the walkout | B5, D | screens |
+| 11 | **The look builder** | B1 | builder sheets at 3 sizes |
+| 12 | **Passing**: power, receivers who come to the ball, one-twos | A3 | pass %, input test |
+| 13 | **The ball at the feet**: touches, first touch, shielding, turning | A1 | screenshot sequence, tackle lab |
+| 14 | **Skill moves and defending**: moves, contain, second man, fouls from contact | A2, A5 | dribble and tackle labs |
+| 15 | **Team AI**: roles and styles, pitch-control runs, a back line with an offside trap, set-piece routines, stamina and subs | A4, A5, A6 | per-90 numbers, invariants |
 
-Milestones 1-3 are the "way better play" the owner asked for and come first; each ends with a push to `main` and a
-rollback point in ROADMAP.md.
+Every step ends with a push to `main` and a rollback point in ROADMAP.md.
 
-## 6. Questions for the owner (the plan does not wait on them)
+## 6. Answered (2026-11-23)
 
-1. **Commentary voices**: reuse basketball's two booth voices for soccer, or record two new ones?
-2. **Accounts**: put PocketSoccer careers in the same Firebase project as football and basketball (one sign-in for
-   all three), or keep them separate?
-3. **Leagues**: stay with one invented country, or several invented leagues (English-style, Spanish-style...) once
-   the career grows?
+1. **Commentary**: reuse basketball's voices and lines; record soccer's own lines in the same voices.
+2. **Accounts**: shared with football and basketball (one sign-in).
+3. **The world**: many leagues, international, with a story like the other games.

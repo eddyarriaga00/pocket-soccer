@@ -9,20 +9,21 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   let scr, game, tab = 'home', modelP = null;
   const SKEY = 'pocketsoccer.settings';
-  const S = Object.assign({ half: 180, zoom: 1, sound: true }, (() => { try { return JSON.parse(localStorage.getItem(SKEY) || '{}'); } catch (e) { return {}; } })());
+  const S = Object.assign({ half: 180, zoom: 1, sound: true, cam: 'broadcast', camCareer: 'lock', radar: true }, (() => { try { return JSON.parse(localStorage.getItem(SKEY) || '{}'); } catch (e) { return {}; } })());
   const saveS = () => { try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) { /* private mode */ } };
 
   function boot() {
     const app = document.getElementById('app');
     app.innerHTML = `<div id="game" hidden><div id="view"></div>
-      <div id="hud"><div class="bug" id="bug"></div><button id="pz" aria-label="Pause"><span></span><span></span></button><div id="toasts"></div><div id="banner"></div></div>
+      <div id="hud"><div class="bug" id="bug"></div><canvas id="radar" width="60" height="92"></canvas><button id="pz" aria-label="Pause"><span></span><span></span></button><div id="toasts"></div><div id="banner"></div></div>
       <div id="ov" hidden></div></div><div id="screen"></div>`;
     scr = $('#screen'); game = $('#game');
     if (PS.R3 && PS.R3.init) { try { PS.R3.init($('#view')); } catch (e) { console.error('PocketSoccer: 3D', e); } }
     PS.Controls.mount(game);
     $('#pz').addEventListener('click', pause);
-    PS.R3.zoom = S.zoom; PS.Audio.on = S.sound;
+    PS.R3.zoom = S.zoom; PS.Audio.on = S.sound; PS.R3.radarOff = !S.radar;
     modelP = PS.Model ? PS.Model.load() : Promise.resolve(null);
+    modelP.then(() => { if (scr.querySelector('.hub') && !M) { const y = scr.scrollTop; hub(); scr.scrollTop = y; } });
     K.load();
     menu();
   }
@@ -50,16 +51,20 @@
     on('#yes', () => { K.wipe(); newCareer(); }); on('#no', menu);
   }
   function settings() {
-    const st = { half: S.half, zoom: S.zoom, sound: S.sound ? 1 : 0 };
+    const st = { half: S.half, zoom: S.zoom, sound: S.sound ? 1 : 0, comm: S.comm === false ? 0 : 1, cam: S.cam, camCareer: S.camCareer, radar: S.radar ? 1 : 0 };
     show(`<div class="page"><button class="back" id="bk">‹ Menu</button><h2>Settings</h2>
       <div class="lbl">Half length</div>${seg('half', [[120, '2 min'], [180, '3 min'], [240, '4 min'], [360, '6 min']], st.half)}
       <p class="sub">Real minutes a half. The match clock still runs to 90.</p>
-      <div class="lbl">Camera</div>${seg('zoom', [[0.85, 'Close'], [1, 'Normal'], [1.2, 'Wide']], st.zoom)}
+      <div class="lbl">Camera in Kick-off</div>${seg('cam', [['broadcast', 'Broadcast'], ['lock', 'Player lock'], ['tele', 'Tele']], st.cam)}
+      <div class="lbl">Camera in My Career</div>${seg('camCareer', [['broadcast', 'Broadcast'], ['lock', 'Player lock'], ['tele', 'Tele']], st.camCareer)}
+      <div class="lbl">Camera distance</div>${seg('zoom', [[0.85, 'Close'], [1, 'Normal'], [1.2, 'Wide']], st.zoom)}
+      <div class="lbl">Radar</div>${seg('radar', [[1, 'On'], [0, 'Off']], st.radar)}
       <div class="lbl">Sound</div>${seg('sound', [[1, 'On'], [0, 'Off']], st.sound)}
+      <div class="lbl">Commentary</div>${seg('comm', [[1, 'On'], [0, 'Off']], st.comm)}
       <button class="go" id="ok">Save</button></div>`);
     segs(st);
     on('#bk', menu);
-    on('#ok', () => { S.half = st.half; S.zoom = st.zoom; S.sound = !!st.sound; PS.R3.zoom = S.zoom; PS.Audio.on = S.sound; saveS(); menu(); });
+    on('#ok', () => { S.half = st.half; S.zoom = st.zoom; S.sound = !!st.sound; S.comm = !!st.comm; S.cam = st.cam; S.camCareer = st.camCareer; S.radar = !!st.radar; PS.R3.radarOff = !S.radar; PS.R3.zoom = S.zoom; PS.Audio.on = S.sound; saveS(); menu(); });
   }
 
   /* ------------------------------------------------------------ kick-off */
@@ -109,8 +114,9 @@
     await modelP;
     const G = PS.Match.create(o);
     M = { G, onEnd, last: performance.now(), acc: 0, paused: false, toasts: [] };
-    PS.R3.attach(G); PS.Controls.attach(G);
+    PS.R3.attach(G); PS.Controls.attach(G); PS.R3.cam = G.mode === 'player' ? S.camCareer : S.cam;
     if (S.sound) PS.Audio.start();
+    if (PS.booth) { PS.booth.enabled = S.comm !== false; PS.booth.load(); Promise.resolve(PS.booth.load()).then(() => { PS.booth.warm(); setTimeout(() => S.sound && PS.booth.say('intro', { prio: 3, follow: 0.6, ana: 'intro_ana' }), 600); }); }
     ov.hidden = true;
     /* on the bench: the match runs on (not drawn) until you come on */
     if (G.me && G.me.bench) {
@@ -133,7 +139,7 @@
     if (M.hit > 0) M.hit -= dt;   /* hit-stop: a hard strike holds the frame for an instant */
     else if (!M.paused && !ovOpen && G.phase !== 'half' && !G.over) { M.acc += dt; let n = 0; while (M.acc >= 1 / 60 && n++ < 5) { PS.Match.step(G, 1 / 60); M.acc -= 1 / 60; } if (n >= 5) M.acc = 0; }
     const evs = G.events.splice(0);
-    if (S.sound) PS.Audio.events(G, evs);
+    if (S.sound) { PS.Audio.events(G, evs); if (S.comm !== false && PS.booth) PS.booth.events(G, evs); }
     for (const e of evs) hudEvent(G, e);
     PS.Audio.tick(G, dt);
     PS.Controls.tick();
@@ -146,9 +152,9 @@
   }
   let bugKey = '';
   function hud(G) {
-    const t0 = G.teams[0].club, t1 = G.teams[1].club, min = PS.Match.minute(G);
+    const t0 = G.teams[0].club, t1 = G.teams[1].club, min = PS.Match.minute(G), k0 = G.teams[0].kitUse || t0, k1 = G.teams[1].kitUse || t1;
     const k = [G.score[0], G.score[1], min, G.half].join();
-    if (k !== bugKey) { bugKey = k; $('#bug').innerHTML = `<i style="background:${t0.c1}"></i><b>${t0.ab}</b><u>${G.score[0]}–${G.score[1]}</u><b>${t1.ab}</b><i style="background:${t1.c1}"></i><em>${Math.min(min, G.half * 45)}'${min > G.half * 45 ? '+' : ''}</em>`; }
+    if (k !== bugKey) { bugKey = k; $('#bug').innerHTML = `<i style="background:${k0.c1}"></i><b>${t0.ab}</b><u>${G.score[0]}–${G.score[1]}</u><b>${t1.ab}</b><i style="background:${k1.c1}"></i><em>${PS.Match.clock(G)}</em>`; }
     PS.Controls.show(!G.over && G.phase !== 'goal' && !(G.me && (G.me.bench || G.me.off)));
   }
   function hudEvent(G, e) {
@@ -190,17 +196,19 @@
     const career = G.mode === 'player';
     ov.innerHTML = `<div class="card"><div class="lbl">Paused · ${PS.Match.minute(G)}'</div><div class="vs">${crest(G.teams[0].club, 30)}<b>${G.score[0]}–${G.score[1]}</b>${crest(G.teams[1].club, 30)}</div>
       <button class="go" id="res">Resume</button>
-      <div class="lbl">Camera</div>${'<div class="seg" id="zm">' + [[0.85, 'Close'], [1, 'Normal'], [1.2, 'Wide']].map(([v, t]) => `<button data-v="${v}" class="${S.zoom === v ? 'on' : ''}">${t}</button>`).join('') + '</div>'}
+      <div class="lbl">Camera</div>${'<div class="seg" id="cm">' + [['broadcast', 'Broadcast'], ['lock', 'Player lock'], ['tele', 'Tele']].map(([v, t]) => `<button data-v="${v}" class="${PS.R3.cam === v ? 'on' : ''}">${t}</button>`).join('') + '</div>'}
+      <div class="lbl">Distance</div>${'<div class="seg" id="zm">' + [[0.85, 'Close'], [1, 'Normal'], [1.2, 'Wide']].map(([v, t]) => `<button data-v="${v}" class="${S.zoom === v ? 'on' : ''}">${t}</button>`).join('') + '</div>'}
       <button class="btn2" id="snd">Sound: ${S.sound ? 'on' : 'off'}</button>
       <button class="btn2" id="sim">Sim to full time</button>
       ${career ? '' : '<button class="btn2" id="quit">Quit match</button>'}</div>`;
     $('#res').onclick = () => { ov.hidden = true; M.paused = false; M.last = performance.now(); };
+    ov.querySelectorAll('#cm button').forEach(b => b.onclick = () => { PS.R3.cam = b.dataset.v; if (G.mode === 'player') S.camCareer = b.dataset.v; else S.cam = b.dataset.v; saveS(); ov.querySelectorAll('#cm button').forEach(x => x.classList.toggle('on', x === b)); });
     ov.querySelectorAll('#zm button').forEach(b => b.onclick = () => { S.zoom = +b.dataset.v; PS.R3.zoom = S.zoom; saveS(); ov.querySelectorAll('#zm button').forEach(x => x.classList.toggle('on', x === b)); });
     $('#snd').onclick = () => { S.sound = !S.sound; PS.Audio.on = S.sound; if (S.sound) PS.Audio.start(); else PS.Audio.stop(); saveS(); $('#snd').textContent = `Sound: ${S.sound ? 'on' : 'off'}`; };
     $('#sim').onclick = () => { ov.hidden = true; M.paused = false; simToEnd(); };
     const q = $('#quit'); if (q) q.onclick = () => { end(); menu(); };
   }
-  function end() { if (!M) return; PS.Controls.detach(); PS.R3.detach(); PS.Audio.stop(); M = null; $('#ov').hidden = true; }
+  function end() { if (!M) return; PS.Controls.detach(); PS.R3.detach(); PS.Audio.stop(); PS.booth && PS.booth.stop(); M = null; $('#ov').hidden = true; }
   function finish() {
     if (!M) return;
     const G = M.G, cb = M.onEnd; end();
@@ -209,7 +217,7 @@
 
   /* ------------------------------------------------------------ new career */
   function newCareer() {
-    const st = { pos: 'ST', foot: 'Right', nation: 'United States', club: null, skin: 3, hair: 'fade' };
+    const st = { pos: 'ST', foot: 'Right', nation: 'United States', club: null, skin: 3, hair: 'fade', cele: 'arms' };
     const weak = D.CLUBS.map((c, i) => ({ c, i })).sort((a, b) => a.c.ovr - b.c.ovr).slice(0, 4);
     st.club = weak[0].i;
     show(`<div class="page">
@@ -222,6 +230,7 @@
       <div class="lbl">Stronger foot</div>${seg('foot', [['Left', 'Left'], ['Right', 'Right']], st.foot)}
       <div class="lbl">Skin tone</div><div class="swatch" data-k="skin">${PS.SKIN.map((c, i) => `<button data-v="${i}" class="${i === st.skin ? 'on' : ''}" style="background:${c}" aria-label="Skin tone ${i + 1}"></button>`).join('')}</div>
       <div class="lbl">Hair</div>${seg('hair', [['fade', 'Fade'], ['short', 'Short'], ['curly', 'Curly'], ['afro', 'Afro'], ['buzz', 'Buzz'], ['locs', 'Locs'], ['long', 'Long'], ['bald', 'Bald']], st.hair)}
+      <div class="lbl">Goal celebration</div>${seg('cele', [['arms', 'Arms up'], ['knee', 'Knee slide'], ['point', 'Point up'], ['plane', 'Airplane'], ['dance', 'Dance']], st.cele)}
       <div class="lbl">Your first club</div>
       <div class="clubs">${weak.map(({ c, i }) => `<button class="clubc ${i === st.club ? 'on' : ''}" data-i="${i}">${crest(c)}<span><b>${c.name}</b><small>${c.ground} · rated ${c.ovr}</small></span></button>`).join('')}</div>
       <button class="go" id="sign">Sign your first contract</button></div>`);
@@ -233,7 +242,7 @@
     on('#bk', menu);
     on('#sign', () => {
       const name = $('#nm').value.trim() || 'Alex Rivera';
-      K.create({ name, nation: $('#nat').value, pos: st.pos, foot: st.foot, club: st.club, skin: st.skin, look: { hair: st.hair, hairColor: '#17110d', face: 0 } });
+      K.create({ name, nation: $('#nat').value, pos: st.pos, foot: st.foot, club: st.club, skin: st.skin, look: { hair: st.hair, hairColor: '#17110d', face: 0, cele: st.cele } });
       tab = 'home'; hub();
     });
   }
@@ -241,12 +250,17 @@
   /* ------------------------------------------------------------ hub */
   function card() {
     const c = K.C, cl = K.club(), o = K.ovr(c.a, c.pos), r = K.role();
+    const face = headOf({ name: c.name, num: c.num, skin: c.skin ?? 3, look: c.look }, cl, 200);
     return `<div class="pcard" style="--c1:${cl.c1};--c2:${cl.c2}">
-      <div class="ovr"><b>${o}</b><span>${c.pos}</span></div>
+      ${face ? `<img class="head" alt="" src="${face}">` : ''}<div class="ovr"><b>${o}</b><span>${c.pos}</span></div>
       <div class="who"><h2>${esc(c.name)}</h2><p>${crest(cl, 20)} ${cl.name} · #${c.num}</p><p class="mute">${esc(c.nation)} · age ${c.age} · ${c.foot} foot</p></div>
       <div class="trust"><span>Manager trust · <b class="role ${r}">${{ starter: 'Starter', rotation: 'Rotation', bench: 'Bench' }[r]}</b></span><div class="bar"><i style="width:${c.trust}%"></i><u style="left:38%"></u><u style="left:62%"></u></div></div>
     </div>`;
   }
+  /* a headshot from the 3D model, once it has loaded (null before, and the card draws without it) */
+  const kitFor = club => Object.assign({ ab: club.ab, name: club.name }, club.kit || { c1: club.c1, c2: club.c2 });
+  function headOf(d, club, size, o) { try { return PS.Model && PS.Model.ready() ? PS.Model.portrait(d, kitFor(club), size, Object.assign({ close: true }, o || {})) : null; } catch (e) { return null; } }
+  PS.ui_head = headOf;
   function hub() {
     const c = K.C; if (!c) return menu();
     if (c.summary) return seasonEnd();
@@ -311,7 +325,7 @@
     const c = K.C, f = K.nextFixture(); if (!f) return null;
     const plan = PS.sim.plan({ us: K.club(), them: K.club(f.opp), home: f.home, role: K.role(), pos: c.pos, usSquad: c.squads[c.club], themSquad: c.squads[f.opp] });
     return { f, o: { teams: [K.club(), K.club(f.opp)], names: [c.squads[c.club], c.squads[f.opp]], home: f.home ? 0 : 1, mode: 'player', halfLen: S.half,
-      me: { name: c.name, num: c.num, pos: c.pos, a: c.a, skin: c.skin ?? 3, look: c.look || null }, on: plan.on, off: plan.off } };
+      me: { name: c.name, num: c.num, pos: c.pos, a: c.a, skin: c.skin ?? 3, look: c.look || null, foot: c.foot, cele: (c.look && c.look.cele) || 'arms' }, on: plan.on, off: plan.off } };
   }
   function matchDay(sim) {
     const co = careerOpts(); if (!co) return hub();

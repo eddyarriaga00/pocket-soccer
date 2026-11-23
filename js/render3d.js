@@ -162,9 +162,25 @@
   }
 
   /* ------------------------------------------------------------ players */
-  function kitOf(team, gk) {
-    const k = team.kit;
-    if (gk) return { c1: k.gk || (k.c1 === '#d9f99d' ? '#22d3ee' : '#d9f99d'), c2: '#111111', shorts: '#111111', sock: k.gk || '#d9f99d', trim: '#111111', alt: '#111111', pat: 0, ab: k.ab, name: k.name };
+  /* kits: the away side changes when the shirts are too alike; the two keepers always differ from both teams and
+     from each other */
+  const rgb = c => { const n = parseInt(String(c).slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+  const near = (a, b) => { const x = rgb(a), y = rgb(b); return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) < 120; };
+  function chooseKits() {
+    const h = G.teams[0].kit, a = G.teams[1].kit;
+    G.teams[0].kitUse = h;
+    let away = a;
+    if (near(h.c1, a.c1)) {
+      const alt = !near(a.c2, h.c1) ? a.c2 : near(h.c1, '#f2f2f2') ? '#141414' : '#f2f2f2';
+      away = Object.assign({}, a, { c1: alt, c2: a.c1, trim: a.c1, alt: a.c1, shorts: alt, sock: alt, pat: 0 });
+    }
+    G.teams[1].kitUse = away;
+    const gks = ['#d9f99d', '#f97316', '#22d3ee', '#e879f9'].filter(c => !near(c, h.c1) && !near(c, away.c1));
+    G.gkCols = [gks[0] || '#d9f99d', gks[1] || '#22d3ee'];
+  }
+  function kitOf(team, gk, t) {
+    const k = team.kitUse || team.kit;
+    if (gk) { const c = G.gkCols ? G.gkCols[t] : '#d9f99d'; return { c1: c, c2: '#111111', shorts: '#111111', sock: c, trim: '#111111', alt: '#111111', pat: 0, ab: k.ab, name: k.name }; }
     return k;
   }
   function attach(g) {
@@ -172,8 +188,12 @@
     for (const [, r] of rigs) scene.remove(r.root);
     rigs.clear();
     const ok = PS.Model && PS.Model.ready();
+    chooseKits();
+    if (refRig) scene.remove(refRig.root);
+    refRig = ok ? PS.Model.player({ name: 'Referee', num: null, skin: 2, ref: true, ht: 1.78 }, { c1: '#141414', c2: '#f2f2f2', shorts: '#141414', sock: '#141414', trim: '#f2f2f2', alt: '#f2f2f2', pat: 0 }) : null;
+    if (refRig) { scene.add(refRig.root); ref.x = W / 2 + 8; ref.y = L / 2; }
     for (const p of G.ps) {
-      const team = G.teams[p.t], kit = kitOf(team, p.role === 'GK');
+      const team = G.teams[p.t], kit = kitOf(team, p.role === 'GK', p.t);
       let rig;
       if (ok) { rig = PS.Model.player({ name: p.name, num: p.num, skin: p.skin, look: p.look, gk: p.role === 'GK', ht: p.role === 'GK' ? 1.9 : 1.8 + ((p.num * 7) % 9 - 4) * 0.012 }, kit); rig.kind = 'skin'; }
       else rig = simplePlayer(kit);
@@ -195,16 +215,21 @@
     const focus = G.mode === 'player' && G.me && !G.me.bench && !G.me.off ? G.me : null;
     const goalCam = G.phase === 'goal' && G.events.length >= 0 ? G.ps.find(p => p.goalie) : null;
     let fx = b.x, fy = b.y;
-    if (focus) { fx = lerp(b.x, focus.x, 0.42); fy = lerp(b.y, focus.y, 0.42); }
-    else if (G.ctl && !G.ctl.bench) { fx = lerp(b.x, G.ctl.x, 0.22); fy = lerp(b.y, G.ctl.y, 0.22); }
+    /* three cameras: 'broadcast' (behind your attack, the ball in the middle), 'lock' (close behind your own man, the
+       basketball game's player lock), 'tele' (high and wide, the whole shape) */
+    const mode = R.cam || 'broadcast', me = focus || (G.ctl && !G.ctl.bench && !G.ctl.off ? G.ctl : null);
+    if (mode === 'lock' && me) { fx = lerp(b.x, me.x, 0.72); fy = lerp(b.y, me.y, 0.72); }
+    else if (focus) { fx = lerp(b.x, focus.x, 0.42); fy = lerp(b.y, focus.y, 0.42); }
+    else if (G.ctl && !G.ctl.bench) { fx = lerp(b.x, G.ctl.x, mode === 'tele' ? 0.1 : 0.22); fy = lerp(b.y, G.ctl.y, mode === 'tele' ? 0.1 : 0.22); }
     /* defending: the camera drops back so the ball sits higher and you see the space behind it, toward your goal */
     const def = PS.Match.possTeam(G) === 1 ? 1 : 0;
     R.def = (R.def || 0) + (def - (R.def || 0)) * Math.min(1, dt * 1.5);
     fy -= s * 11 * R.def;
     if (goalCam) { fx = lerp(fx, goalCam.x, 0.7); fy = lerp(fy, goalCam.y, 0.7); }
     const z = R.zoom * (goalCam ? 0.75 : 1);
-    const back = 21 * z, up = 18 * z, ahead = 5 * z;
-    const tx = X(clamp(fx, 8, W - 8)) * 0.82, tz = Z(fy);
+    const CAMS = { broadcast: [21, 18, 5], lock: [12.5, 9.5, 9], tele: [32, 33, 3] }, cp = CAMS[mode] || CAMS.broadcast;
+    const back = cp[0] * z, up = cp[1] * z, ahead = cp[2] * z;
+    const tx = X(clamp(fx, 8, W - 8)) * (mode === 'lock' ? 0.95 : mode === 'tele' ? 0.6 : 0.82), tz = Z(fy);
     const want = new T.Vector3(tx, up, tz - s * back), look = new T.Vector3(tx, 0.5, tz + s * ahead);
     if (!camInit) { camPos.copy(want); camLook.copy(look); camInit = true; }
     const k = 1 - Math.exp(-dt * 3.2);
@@ -224,6 +249,12 @@
       const rig = rigs.get(p); if (!rig) continue;
       const vis = !p.bench && !p.off; rig.root.visible = vis; if (!vis) continue;
       if (rig.kind === 'skin') {
+        /* the face for the moment */
+        let mood = null;
+        if (G.phase === 'goal') mood = p.goalie ? 'yell' : p.sad ? 'stern' : 'happy';
+        else if (p.moodT > G.t) mood = p.mood2;
+        else if (G.half === 2 && (p.stamina ?? 1) < 0.55) mood = 'tired';
+        _v.mood = mood;
         _v.x = X(p.x); _v.z = Z(p.y); _v.y = 0; _v.face = p.face; _v.vx = p.vx; _v.vz = p.vy; _v.act = p.act; _v.sad = !!p.sad; _v.hold = !!(p.caught && G.ball.owner === p); _v.ready = false; _v.ht = 1.8;
         PS.Model.update(rig, _v, dt);
       } else { rig.root.position.set(X(p.x), 0, Z(p.y)); rig.root.rotation.y = p.face; }
@@ -238,11 +269,13 @@
     ring.visible = !!c && G.phase !== 'goal'; arrow.visible = ring.visible;
     if (c) { ring.position.set(X(c.x), 0.03, Z(c.y)); arrow.position.set(X(c.x), 2.45 + Math.sin(performance.now() / 220) * 0.08, Z(c.y)); arrow.rotation.y += dt * 2; }
     star.visible = false;
+    refTick(dt);
     aimTick();
     trailTick(dt);
     netTick(dt);
     renderer.render(scene, camera);
     /* adapt: a phone that cannot keep up draws fewer pixels */
+    radar();
     if (dt > 0.045) slowFrames++; else slowFrames = Math.max(0, slowFrames - 1);
     if (slowFrames > 40 && dprCap > 1) { dprCap = Math.max(1, dprCap - 0.5); renderer.setPixelRatio(Math.min(dprCap, window.devicePixelRatio || 1)); resize(); slowFrames = 0; }
   }
@@ -277,7 +310,33 @@
     pos.needsUpdate = true;
     if (bulge.t > 2) { a.set(b0); pos.needsUpdate = true; bulge = null; }
   }
-  function detach() { G = null; for (const [, r] of rigs) scene.remove(r.root); rigs.clear(); }
+  /* the referee: never in the way, a little behind the play and off to one side, at a jog */
+  let refRig = null; const ref = { x: W / 2 + 8, y: L / 2, vx: 0, vy: 0, face: 0 };
+  function refTick(dt) {
+    if (!refRig || dt <= 0) { if (refRig) refRig.root.visible = !!G; return; }
+    const b = G.ball, side = G.side[0], tx = clamp(b.x + (b.x < W / 2 ? 10 : -10), 4, W - 4), ty = clamp(b.y - side * 7, 4, L - 4);
+    const dx = tx - ref.x, dy = ty - ref.y, d = Math.hypot(dx, dy), sp = Math.min(6.2, d * 1.2);
+    const wx = d ? dx / d * sp : 0, wy = d ? dy / d * sp : 0, k = Math.min(1, dt * 3);
+    ref.vx += (wx - ref.vx) * k; ref.vy += (wy - ref.vy) * k; ref.x += ref.vx * dt; ref.y += ref.vy * dt;
+    const v = Math.hypot(ref.vx, ref.vy); ref.face = v > 0.6 ? Math.atan2(ref.vx, ref.vy) : Math.atan2(b.x - ref.x, b.y - ref.y);
+    PS.Model.update(refRig, { x: X(ref.x), z: Z(ref.y), y: 0, face: ref.face, vx: ref.vx, vz: ref.vy, act: null }, dt);
+  }
+  /* the radar: the whole pitch in a corner, your attack always up, your team in your colour, the ball white */
+  let rcv = null, rctx = null;
+  function radar() {
+    if (!rcv) { rcv = document.getElementById('radar'); if (!rcv) return; rctx = rcv.getContext('2d'); }
+    if (R.radarOff) { rcv.hidden = true; return; } rcv.hidden = false;
+    const w = rcv.width, h = rcv.height, g = rctx, up = G.side[0] > 0;
+    const px = x => (up ? x : W - x) / W * (w - 4) + 2, py = y => (up ? L - y : y) / L * (h - 4) + 2;
+    g.clearRect(0, 0, w, h); g.fillStyle = 'rgba(20,60,32,.78)'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = 1; g.strokeRect(2.5, 2.5, w - 5, h - 5); g.beginPath(); g.moveTo(2, h / 2); g.lineTo(w - 2, h / 2); g.stroke();
+    g.strokeRect(w / 2 - 9, 2.5, 18, 8); g.strokeRect(w / 2 - 9, h - 10.5, 18, 8);
+    const c0 = (G.teams[0].kitUse || G.teams[0].kit).c1, c1 = (G.teams[1].kitUse || G.teams[1].kit).c1;
+    for (const p of G.ps) { if (p.bench || p.off) continue; g.fillStyle = p.t ? c1 : c0; g.beginPath(); g.arc(px(p.x), py(p.y), p === G.ctl ? 3.4 : 2.3, 0, 7); g.fill();
+      if (p === G.ctl) { g.strokeStyle = '#3ee08f'; g.lineWidth = 1.5; g.stroke(); } else { g.strokeStyle = p.t === 0 ? 'rgba(255,255,255,.75)' : 'rgba(255,190,60,.9)'; g.lineWidth = 0.8; g.stroke(); } }
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(px(G.ball.x), py(G.ball.y), 1.8, 0, 7); g.fill();
+  }
+  function detach() { if (refRig) { scene.remove(refRig.root); refRig = null; } G = null; for (const [, r] of rigs) scene.remove(r.root); rigs.clear(); }
 
   R.init = init; R.attach = attach; R.frame = frame; R.resize = resize; R.showcase = showcase; R.detach = detach;
   R.project = (x, y, z) => { const v = new T.Vector3(X(x), z || 0, Z(y)).project(camera); const r = wrap.getBoundingClientRect(); return { x: (v.x + 1) / 2 * r.width, y: (1 - v.y) / 2 * r.height }; };

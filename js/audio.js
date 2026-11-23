@@ -20,6 +20,15 @@
     src.connect(crowdF); crowdF.connect(crowdG); crowdG.connect(master); src.start();
     return ac;
   }
+  A.ctx = () => ac;
+  /* a voice clip from the booth: its own gain, ducking the crowd a little while it speaks */
+  A.voice = (buf, o = {}) => {
+    if (!ac) return null;
+    const s = ac.createBufferSource(); s.buffer = buf; if (o.rate) s.playbackRate.value = o.rate;
+    const g = ac.createGain(); g.gain.value = o.vol ?? 1.1; s.connect(g); g.connect(master); s.start();
+    if (crowdG && !o.vol) { crowdG.gain.setTargetAtTime(level * 0.35, ac.currentTime, 0.1); }
+    return s;
+  };
   A.start = () => { const c = ctx(); if (c && c.state === 'suspended') c.resume(); };
   A.stop = () => { if (crowdG) crowdG.gain.setTargetAtTime(0, ac.currentTime, 0.3); };
   function burst(dur, f, q, gain, type = 'lowpass') {

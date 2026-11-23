@@ -82,7 +82,9 @@
   const fromDepth = (G, t, d) => G.side[t] > 0 ? d : L - d;
   const slotX = (G, t, fx) => G.side[t] > 0 ? fx * W : W - fx * W;
   function say(G, t, kind) { G.feed.push({ min: minute(G), t, kind: kind || '' }); if (G.feed.length > 60) G.feed.shift(); G.events.push({ k: 'say', t, kind }); }
-  function minute(G) { return Math.min(G.half * 45 + 4, Math.floor((G.half - 1) * 45 + G.htime / G.halfLen * 45) + 1); }
+  function minute(G) { return Math.floor((G.half - 1) * 45 + G.htime / G.halfLen * 45) + 1; }
+  /* the clock as it is shown: 45+2' in stoppage time */
+  function clock(G) { const m = minute(G), end = G.half * 45; return m > end ? `${end}+${m - end}'` : `${m}'`; }
 
   /* ------------------------------------------------------------------ positions */
   /* where a player should be: his slot, moved with the ball (up and across, tighter without the ball) */
@@ -159,6 +161,8 @@
     G.phase = 'restart'; G.phaseT = 0;
     if (text) say(G, text, k);
     G.events.push({ k: 'whistle', short: k !== 'goal' });
+    if (k === 'corner') G.events.push({ k: 'corner' });
+    if (k === 'fk' && depth(G, t, y) > L - 32 && Math.abs(x - CX) < 22) G.events.push({ k: 'fkrange' });
     if (G.mode === 'team' && t === 0) G.ctl = taker;
   }
   /* during a restart: everyone walks to a sensible place; the taker stands over the ball */
@@ -188,6 +192,7 @@
     const r = G.restart, p = r.taker, b = G.ball;
     if (!p) return;
     G.phase = 'play'; G.restart = null; G.penNext = r.k === 'pen';
+    if (r.k === 'kickoff' && G.t > 1) G.events.push({ k: 'kickoffWhistle' });
     for (const q of G.ps) q.wall = false;
     b.x = r.x; b.y = r.y; b.z = R;
     b.owner = p; p.hold = 0; G.lastTouch = p;
@@ -652,12 +657,24 @@
     if (G.phase !== 'play') return;
     G.stats[p.t].fouls++;
     const t = c.t, inBox = Math.abs(c.y - goalY(G, t)) < PITCH.BOXD && Math.abs(c.x - CX) < PITCH.BOXW / 2;
-    if (hard && Math.random() < 0.45) { G.stats[p.t].yellows++; p.yellow = (p.yellow || 0) + 1; say(G, `Yellow card for ${p.name} (${G.teams[p.t].club.ab}).`, 'card'); G.events.push({ k: 'card' }); }
+    /* a clear chance denied: the man fouled near goal with nobody but the keeper between him and it */
+    const gyc = goalY(G, t), dg = hyp(CX - c.x, gyc - c.y), last = dg < 30 && !teamOf(G, p.t).some(q => q !== p && q.role !== 'GK' && Math.abs(q.y - gyc) < Math.abs(c.y - gyc) - 0.5 && hyp(q.x - c.x, q.y - c.y) < 18);
+    if (last && hard && !inBox) sendOff(G, p, `Straight red for ${p.name}! A clear chance denied.`);
+    else if (hard && Math.random() < 0.45) { G.stats[p.t].yellows++; p.yellow = (p.yellow || 0) + 1;
+      if (p.yellow >= 2) sendOff(G, p, `Second yellow for ${p.name}. He's off!`);
+      else { say(G, `Yellow card for ${p.name} (${G.teams[p.t].club.ab}).`, 'card'); G.events.push({ k: 'card' }); } }
     c.act = { k: 'fall', t: 0, T: 1.1 };
     if (inBox) { stop(G, 'pen', t, CX, 0, `PENALTY to ${G.teams[t].club.name}! ${c.name} is brought down.`); G.events.push({ k: 'pen' }); }
-    else stop(G, 'fk', t, c.x, c.y, `Free kick to ${G.teams[t].club.ab}: ${p.name} fouls ${c.name}.`);
+    else { G.events.push({ k: 'foul' }); stop(G, 'fk', t, c.x, c.y, `Free kick to ${G.teams[t].club.ab}: ${p.name} fouls ${c.name}.`); }
   }
 
+  function sendOff(G, p, text) {
+    p.red = true; p.off = true; G.stats[p.t].reds = (G.stats[p.t].reds || 0) + 1;
+    say(G, text, 'card'); G.events.push({ k: 'card', red: true, p });
+    if (G.ball.owner === p) G.ball.owner = null;
+    if (G.ctl === p) { const n = teamOf(G, p.t).filter(q => q !== p && q.role !== 'GK')[0]; if (G.mode === 'team' && n) G.ctl = n; }
+    refresh(G);
+  }
   /* ------------------------------------------------------------------ the user */
   function stickWorld(G) {
     const i = G.input, f = G.cam;   // camera forward on the pitch (fx, fy); its right is (-fy, fx)
@@ -777,8 +794,10 @@
       G.htime += dt;
       const pt = possTeam(G); if (pt >= 0) G.stats[pt].poss += dt;
       if (G.sub && !G.subDone && minute(G) >= G.sub.on) subOn(G);
+      if (G.half === 2 && !G.lateSaid && minute(G) >= 84) { G.lateSaid = true; G.events.push({ k: 'late' }); }
       if (G.o.off && G.me && !G.me.off && minute(G) >= G.o.off && !G.me.bench) subOff(G);
-      if (G.htime >= G.halfLen && (G.phase === 'play' && (!G.ball.owner || true)) && !(G.shot && G.t - G.shot.t < 2)) return endHalf(G);
+      if (G.htime >= G.halfLen && G.added == null) { G.added = G.half === 1 ? 1 + Math.floor(Math.random() * 3) : 2 + Math.floor(Math.random() * 4); say(G, `${G.added} minute${G.added > 1 ? 's' : ''} of stoppage time.`, 'stoppage'); G.events.push({ k: 'stoppage', n: G.added }); }
+      if (G.added != null && G.htime >= G.halfLen * (1 + G.added / 45) && G.phase === 'play' && !(G.shot && G.t - G.shot.t < 2)) return endHalf(G);
     }
     if (G.phase === 'goal') {
       for (const p of G.ps) if (p.act) { p.act.t += dt; if (p.act.t >= p.act.T && p.act.k !== 'cele') p.act = null; }
@@ -928,6 +947,7 @@
       const sh = G.shot, over = b.z > PITCH.GH - 0.1 && Math.abs(b.x - CX) < POST + 1, near = Math.abs(Math.abs(b.x - CX) - POST) < 1.2;
       const what = over ? (b.z < PITCH.GH + 0.8 ? 'Just over the bar!' : 'Over the bar.') : near ? 'Inches wide!' : 'Wide.';
       say(G, `${sh.by.name}: ${what}`, 'miss'); G.events.push({ k: 'miss', what, ctl: !!sh.by.ctl, timing: sh.timing });
+      sh.by.mood2 = 'stern'; sh.by.moodT = G.t + 2.5;
     }
     if (lt === defending) stop(G, 'corner', opp(defending), b.x, endY, `Corner to ${G.teams[opp(defending)].club.ab}.`);
     else stop(G, 'goalkick', defending, b.x, endY, '');
@@ -1005,7 +1025,7 @@
       }
       const rel = hyp(b.vx - p.vx, b.vy - p.vy), ctrl = 11 + p.a.dri * 0.12;
       if (rel < ctrl) {
-        if (G.offside.has(p)) { G.stats[p.t].offsides++; return stop(G, 'fk', opp(p.t), p.x, p.y, `Offside: ${p.name}.`); }
+        if (G.offside.has(p)) { G.stats[p.t].offsides++; G.events.push({ k: 'offside' }); return stop(G, 'fk', opp(p.t), p.x, p.y, `Offside: ${p.name}.`); }
         G.offside.clear();
         if (G.pass && G.pass.from.t === p.t && G.pass.from !== p) { G.stats[p.t].passOk++; G.pass.from.st.pc++; }
         b.owner = p; p.hold = 0; p.caught = p.role === 'GK' ? false : undefined; G.lastTouch = p; G.pass = null; G.shot = null; G.pendingTo = null;
@@ -1034,18 +1054,18 @@
     G.events.push({ k: 'goal', t, by, assist, how, x: b.x, z: b.z, endY });
     G.phase = 'goal'; G.phaseT = 0; G.concede = opp(t); G.shot = null; G.pass = null;
     /* the celebration: the scorer wheels away, his teammates follow; the other side's heads drop */
-    if (by && !own) { by.act = { k: 'cele', t: 0, T: 3.2, c: ['arms', 'knee', 'point', 'plane', 'dance'][Math.floor(Math.random() * 5)] }; by.face = Math.atan2(CX - by.x, (L / 2 - by.y) * 0.3 + (by.x > CX ? 1 : -1)); by.goalie = true; }
+    if (by && !own) { by.act = { k: 'cele', t: 0, T: 3.2, c: by.me && G.o.me && G.o.me.cele ? G.o.me.cele : ['arms', 'knee', 'point', 'plane', 'dance'][Math.floor(Math.random() * 5)] }; by.face = Math.atan2(CX - by.x, (L / 2 - by.y) * 0.3 + (by.x > CX ? 1 : -1)); by.goalie = true; }
     for (const p of G.ps) if (p.t !== t) p.sad = true;
   }
   function endHalf(G) {
     if (G.half === 1) {
-      G.phase = 'half'; G.half = 2; G.htime = 0; say(G, `Half time: ${G.teams[0].club.ab} ${G.score[0]}–${G.score[1]} ${G.teams[1].club.ab}.`, 'ht');
+      G.phase = 'half'; G.half = 2; G.htime = 0; G.added = null; say(G, `Half time: ${G.teams[0].club.ab} ${G.score[0]}–${G.score[1]} ${G.teams[1].club.ab}.`, 'ht');
       G.events.push({ k: 'half' });
       G.side = [-G.side[0], -G.side[1]];
       if (G.ff) resume(G);
     } else { G.phase = 'full'; G.over = true; say(G, `Full time: ${G.teams[0].club.ab} ${G.score[0]}–${G.score[1]} ${G.teams[1].club.ab}.`, 'ft'); G.events.push({ k: 'full' }); }
   }
-  function resume(G) { if (G.phase !== 'half') return; kickoff(G, opp(G.kickTeam)); }
+  function resume(G) { if (G.phase !== 'half') return; kickoff(G, opp(G.kickTeam)); G.events.push({ k: 'second' }); }
   function subOn(G) {
     G.subDone = true; const me = G.me; if (!me) return;
     const out = G.sub.slot && !G.sub.slot.off ? G.sub.slot : teamOf(G, 0).filter(p => p !== me && p.role !== 'GK')[9];
@@ -1072,6 +1092,7 @@
     add(s.it * 0.08, 'interceptions');
     if (s.ps >= 5) add(Math.round(((s.pc / s.ps) - 0.75) * 2 * 100) / 100, `passing (${s.pc}/${s.ps})`);
     add(-s.lost * 0.1, 'times dispossessed');
+    if (p.red) add(-1.5, 'sent off');
     const res = G.score[0] > G.score[1] ? 'W' : G.score[0] < G.score[1] ? 'L' : 'D';
     add(res === 'W' ? 0.3 : res === 'L' ? -0.25 : 0, res === 'W' ? 'the win' : 'the defeat');
     return { r: clamp(Math.round(r * 10) / 10, 3, 10), why, res };
@@ -1093,5 +1114,5 @@
     G.ff = was;
   }
 
-  PS.Match = { create, step, resume, result, fastForward, rating, minute, FORMS, possTeam, goalY, depth, d2, aimPreview, _shot: { shotPlan, sweet, timingOf, shoot } };
+  PS.Match = { create, step, resume, result, fastForward, rating, minute, clock, FORMS, possTeam, goalY, depth, d2, aimPreview, _shot: { shotPlan, sweet, timingOf, shoot } };
 })();

@@ -1,0 +1,771 @@
+{
+ "voices": {
+  "pbp": {
+   "ref": "am_michael",
+   "role": "play-by-play"
+  },
+  "ana": {
+   "ref": "am_onyx",
+   "role": "analyst"
+  },
+  "pa": {
+   "ref": "am_fenrir",
+   "role": "arena announcer"
+  },
+  "mate": {
+   "ref": "am_eric",
+   "role": "players on the floor"
+  }
+ },
+ "note": "PocketSoccer's booth: the same voices as PocketBasketball (lines copied from its script exactly, so their recordings are reused from the shared clip cache) and soccer's own lines. ex = Chatterbox exaggeration.",
+ "calls": {
+  "intro": [
+   {
+    "who": "pbp",
+    "text": "Good evening, and welcome in. It is game night.",
+    "ex": 0.45
+   },
+   {
+    "who": "pbp",
+    "text": "Good evening, everybody. We've got a good one for you tonight.",
+    "ex": 0.45
+   },
+   {
+    "who": "pbp",
+    "text": "Good evening, and welcome to the stadium.",
+    "ex": 0.5
+   },
+   {
+    "who": "pbp",
+    "text": "A full house here tonight. Let's get this one started.",
+    "ex": 0.5
+   },
+   {
+    "who": "pbp",
+    "text": "Welcome, everybody, to a big night of football.",
+    "ex": 0.5
+   }
+  ],
+  "intro_ana": [
+   {
+    "who": "ana",
+    "text": "Both sides like to keep the ball. Should be a good one.",
+    "ex": 0.4
+   },
+   {
+    "who": "ana",
+    "text": "The first goal is going to matter tonight.",
+    "ex": 0.4
+   },
+   {
+    "who": "ana",
+    "text": "Watch the battle in midfield. That decides this one.",
+    "ex": 0.4
+   }
+  ],
+  "kickoff": [
+   {
+    "who": "pbp",
+    "text": "And we're underway.",
+    "ex": 0.5
+   },
+   {
+    "who": "pbp",
+    "text": "We have a ball game.",
+    "ex": 0.5
+   },
+   {
+    "who": "pbp",
+    "text": "The referee blows, and we're off!",
+    "ex": 0.55
+   }
+  ],
+  "goal": [
+   {
+    "who": "pbp",
+    "text": "GOAL!",
+    "ex": 0.95
+   },
+   {
+    "who": "pbp",
+    "text": "It's in! What a goal!",
+    "ex": 0.95
+   },
+   {
+    "who": "pbp",
+    "text": "He scores!",
+    "ex": 0.95
+   },
+   {
+    "who": "pbp",
+    "text": "GOAL! The stadium erupts!",
+    "ex": 0.95
+   },
+   {
+    "who": "pbp",
+    "text": "Into the back of the net!",
+    "ex": 0.95
+   },
+   {
+    "who": "pbp",
+    "text": "He's done it! GOAL!",
+    "ex": 0.95
+   }
+  ],
+  "goal_far": [
+   {
+    "who": "pbp",
+    "text": "From distance! What a strike!",
+    "ex": 0.95
+   },
+   {
+    "who": "pbp",
+    "text": "Oh, what a hit! From way out!",
+    "ex": 0.95
+   },
+   {
+    "who": "pbp",
+    "text": "Unstoppable! From thirty yards!",
+    "ex": 0.95
+   }
+  ],
+  "goal_top": [
+   {
+    "who": "pbp",
+    "text": "Top corner! Unbelievable!",
+    "ex": 0.95
+   },
+   {
+    "who": "pbp",
+    "text": "Right into the top corner!",
+    "ex": 0.95
+   }
+  ],
+  "goal_chip": [
+   {
+    "who": "pbp",
+    "text": "He chips the keeper! Sublime!",
+    "ex": 0.9
+   },
+   {
+    "who": "pbp",
+    "text": "Over the keeper! What a finish!",
+    "ex": 0.9
+   }
+  ],
+  "goal_head": [
+   {
+    "who": "pbp",
+    "text": "A bullet header! In!",
+    "ex": 0.9
+   },
+   {
+    "who": "pbp",
+    "text": "Heads it home!",
+    "ex": 0.9
+   }
+  ],
+  "goal_curl": [
+   {
+    "who": "pbp",
+    "text": "Curled in! Beautiful!",
+    "ex": 0.9
+   },
+   {
+    "who": "pbp",
+    "text": "He bends it into the far corner!",
+    "ex": 0.9
+   }
+  ],
+  "goal_pen": [
+   {
+    "who": "pbp",
+    "text": "Penalty... scored!",
+    "ex": 0.8
+   },
+   {
+    "who": "pbp",
+    "text": "Sends the keeper the wrong way!",
+    "ex": 0.8
+   }
+  ],
+  "goal_ana": [
+   {
+    "who": "ana",
+    "text": "What a finish. Real composure.",
+    "ex": 0.5
+   },
+   {
+    "who": "ana",
+    "text": "Picked his spot and buried it.",
+    "ex": 0.5
+   },
+   {
+    "who": "ana",
+    "text": "The keeper had no chance on that one.",
+    "ex": 0.5
+   },
+   {
+    "who": "ana",
+    "text": "That is a striker's goal.",
+    "ex": 0.5
+   },
+   {
+    "who": "ana",
+    "text": "Great movement before the finish.",
+    "ex": 0.5
+   }
+  ],
+  "owngoal": [
+   {
+    "who": "pbp",
+    "text": "Oh no, it's an own goal!",
+    "ex": 0.85
+   },
+   {
+    "who": "pbp",
+    "text": "Into his own net!",
+    "ex": 0.85
+   }
+  ],
+  "save": [
+   {
+    "who": "pbp",
+    "text": "Great save!",
+    "ex": 0.8
+   },
+   {
+    "who": "pbp",
+    "text": "What a stop by the keeper!",
+    "ex": 0.8
+   },
+   {
+    "who": "pbp",
+    "text": "Saved! Brilliant goalkeeping!",
+    "ex": 0.8
+   },
+   {
+    "who": "pbp",
+    "text": "Tipped around the post!",
+    "ex": 0.8
+   },
+   {
+    "who": "pbp",
+    "text": "Denied!",
+    "ex": 0.8
+   }
+  ],
+  "save_ana": [
+   {
+    "who": "ana",
+    "text": "Strong hands from the keeper there.",
+    "ex": 0.45
+   },
+   {
+    "who": "ana",
+    "text": "He read that all the way.",
+    "ex": 0.45
+   },
+   {
+    "who": "ana",
+    "text": "Kept his team in it with that save.",
+    "ex": 0.45
+   }
+  ],
+  "miss": [
+   {
+    "who": "pbp",
+    "text": "Off the mark.",
+    "ex": 0.45
+   },
+   {
+    "who": "pbp",
+    "text": "No good.",
+    "ex": 0.45
+   },
+   {
+    "who": "pbp",
+    "text": "Just wide!",
+    "ex": 0.7
+   },
+   {
+    "who": "pbp",
+    "text": "Over the bar!",
+    "ex": 0.7
+   },
+   {
+    "who": "pbp",
+    "text": "So close!",
+    "ex": 0.7
+   },
+   {
+    "who": "pbp",
+    "text": "Inches wide!",
+    "ex": 0.7
+   }
+  ],
+  "miss_ana": [
+   {
+    "who": "ana",
+    "text": "That one was forced.",
+    "ex": 0.45
+   },
+   {
+    "who": "ana",
+    "text": "Rushed it a little there.",
+    "ex": 0.45
+   },
+   {
+    "who": "ana",
+    "text": "He has to hit the target there.",
+    "ex": 0.4
+   },
+   {
+    "who": "ana",
+    "text": "Big chance, and he puts it wide.",
+    "ex": 0.4
+   }
+  ],
+  "post": [
+   {
+    "who": "pbp",
+    "text": "Off the post!",
+    "ex": 0.9
+   },
+   {
+    "who": "pbp",
+    "text": "Hits the woodwork!",
+    "ex": 0.9
+   },
+   {
+    "who": "pbp",
+    "text": "Off the bar!",
+    "ex": 0.9
+   }
+  ],
+  "block": [
+   {
+    "who": "pbp",
+    "text": "Get that out of here!",
+    "ex": 0.9
+   },
+   {
+    "who": "pbp",
+    "text": "Blocked!",
+    "ex": 0.7
+   },
+   {
+    "who": "pbp",
+    "text": "Great block by the defender!",
+    "ex": 0.7
+   }
+  ],
+  "tackle": [
+   {
+    "who": "pbp",
+    "text": "Picked off!",
+    "ex": 0.75
+   },
+   {
+    "who": "pbp",
+    "text": "Takes it away!",
+    "ex": 0.75
+   },
+   {
+    "who": "pbp",
+    "text": "Great tackle!",
+    "ex": 0.65
+   },
+   {
+    "who": "pbp",
+    "text": "Wins it cleanly!",
+    "ex": 0.65
+   }
+  ],
+  "tackle_ana": [
+   {
+    "who": "ana",
+    "text": "Read that pass all the way.",
+    "ex": 0.5
+   },
+   {
+    "who": "ana",
+    "text": "Perfectly timed challenge.",
+    "ex": 0.4
+   }
+  ],
+  "foul": [
+   {
+    "who": "pbp",
+    "text": "Whistle. Foul on the play.",
+    "ex": 0.5
+   },
+   {
+    "who": "pbp",
+    "text": "Called for the foul.",
+    "ex": 0.5
+   }
+  ],
+  "yellow": [
+   {
+    "who": "pbp",
+    "text": "That's a yellow card.",
+    "ex": 0.55
+   },
+   {
+    "who": "pbp",
+    "text": "Into the book he goes.",
+    "ex": 0.55
+   }
+  ],
+  "red": [
+   {
+    "who": "pbp",
+    "text": "Red card! He's off!",
+    "ex": 0.85
+   },
+   {
+    "who": "pbp",
+    "text": "Straight red! They're down to ten!",
+    "ex": 0.85
+   }
+  ],
+  "penalty": [
+   {
+    "who": "pbp",
+    "text": "Penalty! The referee points to the spot!",
+    "ex": 0.85
+   },
+   {
+    "who": "pbp",
+    "text": "It's a penalty!",
+    "ex": 0.85
+   }
+  ],
+  "offside": [
+   {
+    "who": "pbp",
+    "text": "The flag is up. Offside.",
+    "ex": 0.5
+   },
+   {
+    "who": "pbp",
+    "text": "Offside. The move breaks down.",
+    "ex": 0.5
+   }
+  ],
+  "corner": [
+   {
+    "who": "pbp",
+    "text": "Corner kick.",
+    "ex": 0.5
+   },
+   {
+    "who": "pbp",
+    "text": "They'll have a corner.",
+    "ex": 0.5
+   }
+  ],
+  "freekick": [
+   {
+    "who": "pbp",
+    "text": "Free kick, and this one is in range.",
+    "ex": 0.55
+   },
+   {
+    "who": "pbp",
+    "text": "Dangerous position for a free kick.",
+    "ex": 0.55
+   }
+  ],
+  "skill": [
+   {
+    "who": "pbp",
+    "text": "Oh, he shook him!",
+    "ex": 0.9
+   },
+   {
+    "who": "pbp",
+    "text": "Broke his ankles!",
+    "ex": 0.9
+   },
+   {
+    "who": "pbp",
+    "text": "What skill!",
+    "ex": 0.8
+   },
+   {
+    "who": "pbp",
+    "text": "He's beaten his man!",
+    "ex": 0.8
+   },
+   {
+    "who": "pbp",
+    "text": "Nutmeg!",
+    "ex": 0.8
+   }
+  ],
+  "hot": [
+   {
+    "who": "pbp",
+    "text": "He's on fire!",
+    "ex": 0.9
+   },
+   {
+    "who": "pbp",
+    "text": "Somebody stop the rookie!",
+    "ex": 0.9
+   },
+   {
+    "who": "pbp",
+    "text": "The rookie is heating up!",
+    "ex": 0.9
+   }
+  ],
+  "half": [
+   {
+    "who": "pbp",
+    "text": "That's the half.",
+    "ex": 0.5
+   },
+   {
+    "who": "pbp",
+    "text": "The referee blows for half time.",
+    "ex": 0.5
+   }
+  ],
+  "half_ana": [
+   {
+    "who": "ana",
+    "text": "Second half adjustments are going to decide this.",
+    "ex": 0.45
+   },
+   {
+    "who": "ana",
+    "text": "Plenty to talk about at the break.",
+    "ex": 0.4
+   }
+  ],
+  "second": [
+   {
+    "who": "pbp",
+    "text": "We're back underway for the second half.",
+    "ex": 0.5
+   },
+   {
+    "who": "pbp",
+    "text": "Here we go, the second half.",
+    "ex": 0.5
+   }
+  ],
+  "late": [
+   {
+    "who": "pbp",
+    "text": "Crunch time.",
+    "ex": 0.7
+   },
+   {
+    "who": "pbp",
+    "text": "Here we go. Every possession matters now.",
+    "ex": 0.7
+   },
+   {
+    "who": "pbp",
+    "text": "Into the final minutes here.",
+    "ex": 0.6
+   }
+  ],
+  "stoppage": [
+   {
+    "who": "pbp",
+    "text": "We're into stoppage time.",
+    "ex": 0.6
+   }
+  ],
+  "final": [
+   {
+    "who": "pbp",
+    "text": "And that'll do it!",
+    "ex": 0.7
+   },
+   {
+    "who": "pbp",
+    "text": "The final whistle blows!",
+    "ex": 0.7
+   },
+   {
+    "who": "pbp",
+    "text": "Full time!",
+    "ex": 0.7
+   }
+  ],
+  "final_ana": [
+   {
+    "who": "ana",
+    "text": "They earned that one.",
+    "ex": 0.45
+   },
+   {
+    "who": "ana",
+    "text": "Great effort on both ends tonight.",
+    "ex": 0.45
+   },
+   {
+    "who": "ana",
+    "text": "That's a statement win.",
+    "ex": 0.45
+   }
+  ],
+  "debut": [
+   {
+    "who": "pbp",
+    "text": "Here's the rookie, in his first game in the league.",
+    "ex": 0.55
+   },
+   {
+    "who": "pbp",
+    "text": "A big night for the rookie. His debut.",
+    "ex": 0.55
+   }
+  ],
+  "rival": [
+   {
+    "who": "pbp",
+    "text": "A rivalry renewed tonight. These two know each other well.",
+    "ex": 0.55
+   }
+  ],
+  "derby": [
+   {
+    "who": "pbp",
+    "text": "It's derby day! The atmosphere is electric!",
+    "ex": 0.7
+   }
+  ],
+  "high": [
+   {
+    "who": "pbp",
+    "text": "That's a career high for him!",
+    "ex": 0.75
+   },
+   {
+    "who": "pbp",
+    "text": "A new career best, right there!",
+    "ex": 0.75
+   }
+  ],
+  "hattrick": [
+   {
+    "who": "pbp",
+    "text": "A hat-trick! Three for him tonight!",
+    "ex": 0.95
+   },
+   {
+    "who": "pbp",
+    "text": "He's got his hat-trick!",
+    "ex": 0.95
+   }
+  ],
+  "cupfinal": [
+   {
+    "who": "pbp",
+    "text": "It's the cup final. Everything on the line.",
+    "ex": 0.7
+   },
+   {
+    "who": "pbp",
+    "text": "A final tonight. Ninety minutes for a trophy.",
+    "ex": 0.7
+   }
+  ],
+  "champions": [
+   {
+    "who": "pbp",
+    "text": "Champions! What a season!",
+    "ex": 0.9
+   }
+  ],
+  "pa_noise": [
+   {
+    "who": "pa",
+    "text": "Make some noise!",
+    "ex": 0.85
+   },
+   {
+    "who": "pa",
+    "text": "Let me hear you!",
+    "ex": 0.85
+   }
+  ],
+  "ch_ball": [
+   {
+    "who": "mate",
+    "text": "I'm open!",
+    "ex": 0.7
+   },
+   {
+    "who": "mate",
+    "text": "Here!",
+    "ex": 0.7
+   },
+   {
+    "who": "mate",
+    "text": "Ball! Ball!",
+    "ex": 0.75
+   },
+   {
+    "who": "mate",
+    "text": "Man on!",
+    "ex": 0.6
+   },
+   {
+    "who": "mate",
+    "text": "Square it!",
+    "ex": 0.6
+   }
+  ],
+  "ch_run": [
+   {
+    "who": "mate",
+    "text": "Run! Run!",
+    "ex": 0.75
+   },
+   {
+    "who": "mate",
+    "text": "Go, go!",
+    "ex": 0.75
+   }
+  ],
+  "ch_back": [
+   {
+    "who": "mate",
+    "text": "Get back!",
+    "ex": 0.75
+   }
+  ],
+  "ch_nice": [
+   {
+    "who": "mate",
+    "text": "Let's go!",
+    "ex": 0.8
+   },
+   {
+    "who": "mate",
+    "text": "That's what I'm talking about!",
+    "ex": 0.8
+   }
+  ],
+  "ch_shot": [
+   {
+    "who": "mate",
+    "text": "Shot!",
+    "ex": 0.75
+   },
+   {
+    "who": "mate",
+    "text": "Shot, shot!",
+    "ex": 0.75
+   }
+  ]
+ }
+}
