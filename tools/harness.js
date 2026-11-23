@@ -13,7 +13,7 @@
   }
   const PS = window.PS;
   function matches(n = 10, half = 180) {
-    const C = PS.data.CLUBS, tot = { goals: 0, shots: 0, onT: 0, passes: 0, passOk: 0, corners: 0, fouls: 0, offsides: 0, saves: 0 }, lines = [];
+    const C = PS.data.CLUBS.filter(c => !c.lg), tot = { goals: 0, shots: 0, onT: 0, passes: 0, passOk: 0, corners: 0, fouls: 0, offsides: 0, saves: 0 }, lines = [];
     for (let i = 0; i < n; i++) {
       const a = C[i % C.length], b = C[(i * 5 + 3) % C.length];
       const G = PS.Match.create({ teams: [a, b], mode: 'team', halfLen: half, auto: true });

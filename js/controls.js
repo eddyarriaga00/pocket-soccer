@@ -1,7 +1,8 @@
 /* PocketSoccer: thumbs on the glass. A floating stick on the left half; four buttons on the right whose jobs follow the
    play, FIFA-style:
      your ball:        Shoot (hold to power, release to strike; swipe up a chip, down a finesse, sideways a fake;
-                       let go early for a low drive, hold to the end for a power shot)  Pass (tap; hold = lob or cross)  Through  Sprint
+                       let go early for a low drive, hold to the end for a power shot)  Pass (tap for a weighted pass, hold for pace; swipe up to loft it; out wide it crosses)  Through (the same)  Sprint
+                       after a pass, Through (or Run, in a career) while it travels: a one-two, straight back into your run
      a teammate's (in a career): —  Call (for the pass)  Run (in behind, for a through ball)  Sprint
      theirs:           Tackle  Switch (or Press, in a career: hold to close him down)  Slide  Sprint
    Keys too: arrows or WASD to move, Space = the big button, J / K = the two others, Shift = sprint, E = switch. */
@@ -34,7 +35,10 @@
       const b = btn[s];
       b.addEventListener("pointerdown", e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) { /* a synthetic pointer */ } press(s, e.clientX, e.clientY); });
       /* a swipe while Shoot is held picks the shot: up a chip, down a finesse, sideways a fake */
-      b.addEventListener('pointermove', e => { const h = held[s]; if (!h || h.k !== 'shoot' || h.x0 == null) return; const dx = e.clientX - h.x0, dy = e.clientY - h.y0;
+      b.addEventListener('pointermove', e => { const h = held[s]; if (!h || h.x0 == null) return; const dx = e.clientX - h.x0, dy = e.clientY - h.y0;
+        /* Pass or Through held: a swipe up lofts it */
+        if (h.k === 'pass' || h.k === 'through') { const lob = dy < -26 && -dy > Math.abs(dx); if (lob !== !!h.lob) { h.lob = lob; if (navigator.vibrate) try { navigator.vibrate(8); } catch (x) { /* none */ } } return; }
+        if (h.k !== 'shoot') return;
         const t = dy < -26 && -dy > Math.abs(dx) ? 'chip' : dy > 26 && dy > Math.abs(dx) ? 'finesse' : Math.abs(dx) > 34 ? 'fake' : Math.hypot(dx, dy) < 18 ? 'drive' : h.type;
         if (t !== h.type) { h.type = t; if (G && G.input.charge) G.input.charge.type = t; if (navigator.vibrate) try { navigator.vibrate(8); } catch (x) { /* none */ } } });
       b.addEventListener('pointerup', e => { e.preventDefault(); release(s); });
@@ -71,6 +75,8 @@
     if (k === 'press') { G.input.press = true; return; }
     if (k === 'tackle' || k === 'switch' || k === 'slide' || k === 'call' || k === 'run') G.input.q.push({ k, up: false });
     if (k === 'shoot') { power.hidden = false; shint.hidden = false; G.input.charge = { t0: held[s].t0, type: 'drive' }; }
+    /* passes take their pace from the hold: the bar shows it, a quick tap is the weighted one */
+    if (k === 'pass' || k === 'through') { power.hidden = false; pwZone.style.width = '0'; }
     PS.Audio && PS.Audio.tap && PS.Audio.tap();
   }
   function release(s) {
@@ -89,7 +95,7 @@
       else if (pv && pv.fake) shotCall('FAKE', 'good');
       return;
     }
-    if (h.k === 'pass' || h.k === 'through') G.input.q.push({ k: h.k, up: true, dur, long: dur > 0.3 || btn[s].dataset.job === 'Cross' || btn[s].dataset.job === 'Throw long' });
+    if (h.k === 'pass' || h.k === 'through') { power.hidden = true; G.input.q.push({ k: h.k, up: true, dur, pw: Math.min(1, dur / 0.8), lob: !!h.lob || btn[s].dataset.job === 'Cross', long: btn[s].dataset.job === 'Throw long' || btn[s].dataset.job === 'Cross' }); }
   }
   /* every frame: the labels, and the power bar while Shoot is held */
   C.tick = () => {
@@ -98,6 +104,12 @@
     if (key !== labels) {
       labels = key;
       for (const s of ['A', 'B', 'C']) { const b = btn[s]; b.dataset.job = j[s]; b.querySelector('b').textContent = j[s] || ''; b.classList.toggle('off', !j[s]); b.classList.toggle('def', j.A === 'Tackle'); }
+    }
+    const hp = held.B || held.C;
+    if (hp && (hp.k === 'pass' || hp.k === 'through')) {
+      const k = Math.min(1, (performance.now() - hp.t0) / 800);
+      pwFill.style.width = k * 100 + '%'; pwFill.className = k > 0.7 ? 'hot' : '';
+      pwType.textContent = (hp.lob ? (hp.k === 'through' ? 'LOFTED THROUGH' : 'LOB') : hp.k === 'through' ? 'THROUGH' : 'PASS') + (k > 0.55 ? ' · DRIVEN' : '');
     }
     const h = held.A;
     if (h && h.k === 'shoot') {

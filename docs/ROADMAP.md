@@ -10,6 +10,7 @@ Update this file after every item.
 - **Rollback points:** before every push to `main`, add a line below with the commit `main` is on and what the push
   brings. To go back: `git revert --no-edit <commit>..main`, then push `main`.
 - **Rollback points** (newest first; the commit is the last good `main` before that change):
+  - `8dbdbd2`, before the passing work: pace from the hold, lob swipe, open-man assist, one-twos, chest control, computer shot tuning (2026-11-23).
   - `d6d6175`, before the look builder (2026-11-23).
   - `88a4296`, before the story: the road in, a rival, cutscenes, the walkout and the face-off (2026-11-23).
   - `60d65a1`, before the world: seven leagues, domestic cups, the Champions Cup, national teams and tournaments (2026-11-23).
@@ -84,6 +85,13 @@ Update this file after every item.
 - [x] The walkout: both sides in a line at halfway, the camera down the line with names, then you and your rival face to face; skippable
 - [x] The look builder: hair (16 styles), colour, headband, skin, face, beard, boot colour, sleeves, build, celebration; a turning preview; from New career and the Career tab
 
+
+### Passing (2026-11-23)
+- [x] Pace from the hold (a tap is weighted, a full bar driven), swipe up to loft, crosses from wide on a held pass
+- [x] The assist prefers an open man with a clear lane among those the stick points at
+- [x] One-twos: pass, then Through (Run or Call in a career) while it travels; he runs and gets it back first time
+- [x] Receivers chest and thigh down lofted passes; computer passing 79-80% (target 78-85%)
+
 ### M3 The world
 - [x] Seven leagues in seven countries (England, Spain, Italy, Germany, France, Brazil, USA), 72 invented clubs, all
       simulated round by round alongside yours; transfers from any of them (2026-11-23)
@@ -109,5 +117,6 @@ chip v keeper 7 m out          0      1     80     76     73     62   (v a keepe
 
 ## Balance (node tools/harness.js, 48 matches of 3-minute halves)
 
-Per match: 2.2 goals, 14 shots (8.8 on target), about 155 passes at 75%, 0.8 corners, 2.6 fouls, 0.4 penalties,
-6.6 saves. Possession lands near 50/50 between even sides; stronger clubs win more but not always.
+Per match (after the passing work, 2026-11-23, Premier Division clubs): about 3 goals (2.7 to 3.6 between runs), 15 shots
+(10 on target), about 170 passes at 79-80%, 1.2 corners, 2.6 fouls, 7 saves. Before it: 2.2 goals, 14 shots, 155
+passes at 75%. Lofted passes are chested down by the man they are for; the computer only lofts to a man with room. Possession lands near 50/50 between even sides; stronger clubs win more but not always.

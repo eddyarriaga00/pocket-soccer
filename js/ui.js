@@ -535,8 +535,9 @@
         <li><b>Timing</b>: the bar has a green band. Let go inside it for a <b>perfect</b> strike, far more accurate. The band sits low for close range and higher from distance. Overhit it and the ball climbs.</li>
         <li><b>Shot types</b>: while holding Shoot, swipe <b>up</b> for a chip (over a keeper who has come out), <b>down</b> for a finesse (curled into the far corner: the best finish from the edge of the box), <b>sideways</b> for a fake shot. Let go early for a low drive; hold to the end for a power shot. A ball in the air is a volley.</li>
         <li>Shooting across your body, on your weaker foot, at a sprint or with a defender on you all make a shot less accurate. Take a touch and set yourself.</li>
-        <li><b>Pass</b>: tap for a pass along the ground toward where the stick points. Hold it for a lofted ball, a cross from out wide.</li>
-        <li><b>Through</b>: a ball into space for a runner. Hold it to chip it over.</li></ul>
+        <li><b>Pass</b>: tap for a weighted pass along the ground toward where the stick points (the open man wins a close call). Hold it for pace: the bar fills, a full bar is driven. Swipe up while holding to loft it; out wide in their half it becomes a cross.</li>
+        <li><b>Through</b>: a ball into space for a runner, paced the same way; swipe up for a lofted through ball.</li>
+        <li><b>One-two</b>: pass, then press Through while the ball travels (in My Career, Run or Call): he plays it straight back into your run.</li></ul>
       <div class="lbl">Without the ball</div>
       <ul class="howl"><li><b>Tackle</b>: get close and tap it. Not from behind!</li><li><b>Slide</b>: a sliding tackle where the stick points. Miss the ball and it’s a foul (maybe a penalty).</li>
         <li><b>Switch</b> (Kick-off): change to the man nearest the ball. It also switches on its own.</li><li><b>Press</b> (My Career): hold to close the man on the ball down.</li>

@@ -336,7 +336,7 @@
     const airK = b.z > 0.45 ? 1.35 : 1, runK = hyp(p.vx, p.vy) > 6.4 ? 1.15 : 1;
     const tK = { perfect: 0.36, good: 0.75, early: 1, over: 1.2 }[o.timing || 'good'];
     const base = 0.075 - a.sho * 0.0005;   // radians: shooting 50 about 3.4°, 75 about 2.1°, 90 about 1.7° before the factors
-    const sdH = base * S.err * (0.75 + 0.5 * pw) * pressK * bodyK * footK * airK * runK * tK * (p.ctl ? 1 : 1.12);
+    const sdH = base * S.err * (0.75 + 0.5 * pw) * pressK * bodyK * footK * airK * runK * tK * (p.ctl ? 1 : 1.6);
     const sdV = (0.3 + 0.9 * pw) * S.err * pressK * airK * tK * (type === 'low' ? 0.45 : 1);
     const over = o.timing === 'over' ? 1.1 + Math.max(0, pw - 0.8) * 5 : 0;
     return { type, pw, tx, tz, gy, v, spin, top: type === 'low' ? 4 : type === 'power' ? 2 : type === 'chip' ? 3 : 0, sdH, sdV, over, dist, timing: o.timing || 'good', weak, press, foot: weak ? (p.foot === 'Left' ? 'R' : 'L') : (p.foot === 'Left' ? 'L' : 'R') };
@@ -424,8 +424,10 @@
         const t = 0.8 + d / 26, vh = d / t * 1.1, vz = 0.5 * 9.81 * t * 0.9;
         kickNow(G, p, Math.sin(ang) * vh, Math.cos(ang) * vh, vz, 0, opts.cross ? 'cross' : 'pass', to);
       } else {
-        const arrive = through ? 8.5 : 6;
-        const v = Math.sqrt(arrive * arrive + 2 * 2.4 * d) * (1 + gauss() * 0.06 * (1 - a.pas / 100));
+        /* pace: a weighted pass arrives at a jog, a driven one fizzes (harder to cut out, harder to control) */
+        const pw = opts.pw == null ? clamp(d / 34, 0.2, 0.7) : opts.pw;
+        const arrive = (through ? 7 : 4.6) + pw * 6.5;
+        const v = Math.sqrt(arrive * arrive + 2 * 2.4 * d) * (1 + gauss() * 0.06 * (1 - a.pas / 100) * (1 + pw * 0.6));
         kickNow(G, p, Math.sin(ang) * v, Math.cos(ang) * v, 0, 0, through ? 'through' : 'pass', to);
       }
       to = to || opts.to;
@@ -444,7 +446,7 @@
     if (!restart || r === 'fk' || r === 'pen') {
       const ang = Math.atan2(Math.abs(p.x - CX), Math.abs(gy - p.y));
       const lane = opps.filter(o => o.role !== 'GK' && segDist(o, p, { x: CX, y: gy }) < 1.1 && segT(o, p, { x: CX, y: gy }) > 0.05).length;
-      const want = r === 'pen' || (r === 'fk' && dG < 30 && ang < 0.9) || (dG < 24 && ang < 1.0 && (dG < 13 || lane === 0) && (xg(G, p) > 0.06 || (near < 2 && dG < 20)));
+      const want = r === 'pen' || (r === 'fk' && dG < 30 && ang < 0.9) || (dG < 24 && ang < 1.0 && (dG < 13 || lane === 0) && (xg(G, p) > 0.085 || (near < 1.6 && dG < 17)));
       if (want && Math.random() < (r ? 1 : 0.85)) {
         shoot(G, p, aiShot(G, p, r, dG, ang));
         return true;
@@ -459,7 +461,8 @@
       const open = Math.min(9, opps.reduce((m, o) => Math.min(m, d2(o, q)), 99));
       let risk = 0; for (const o of opps) { const sd = segDist(o, p, q), st = segT(o, p, q); if (st > 0.1 && st < 0.96) risk = Math.max(risk, clamp((2.6 - sd) / 2.6, 0, 1) * (1 - st * 0.4)); }
       const lob = risk > 0.4 && dd > 14;
-      let s = prog * 0.12 + open * 0.35 - (lob ? risk * 1.2 : risk * 4.5) - dd * 0.03 - (G.offside.has(q) ? 9 : 0) + (q.me && G.call && G.call.t > G.t ? 6 : 0) + (q.me ? 0.6 : 0);
+      /* a lofted ball is a contest in the air when a defender is near the man it is for */
+      let s = prog * 0.12 + open * 0.35 - (lob ? risk * 1.2 + 1.2 + Math.max(0, 4 - open) * 1.4 : risk * 4.5) - dd * 0.03 - (G.offside.has(q) ? 9 : 0) + (q.me && G.call && G.call.t > G.t ? 6 : 0) + (q.me ? 0.6 : 0);
       if (depth(G, t, q.y) > offLine(G, t) + 0.2) s -= 8;
       if (s > bs) { bs = s; best = { q, lob, s }; }
     }
@@ -515,7 +518,7 @@
     else if (dG > 22 && Math.random() < 0.35) type = 'power';
     const ss = sweet(G, p);
     let pw = type === 'low' ? rnd(0.15, 0.3) : type === 'power' ? rnd(0.92, 1) : type === 'chip' ? 0.5 : clamp(ss.c + gauss() * 0.12, 0.33, 0.88);
-    const roll = Math.random(), timing = type === 'power' ? (roll < 0.5 ? 'good' : 'over') : roll < 0.12 + p.a.sho / 240 ? 'perfect' : roll < 0.78 ? 'good' : roll < 0.9 ? 'early' : 'over';
+    const roll = Math.random(), timing = type === 'power' ? (roll < 0.5 ? 'good' : 'over') : roll < 0.05 + p.a.sho / 400 ? 'perfect' : roll < 0.64 ? 'good' : roll < 0.84 ? 'early' : 'over';
     if (timing === 'perfect') pw = ss.c;
     return { type, pw, across, timing };
   }
@@ -560,6 +563,8 @@
       const e = meetPoint(G, p);
       if (d2(p, e) < 6) { p.tx = e.x; p.ty = e.y; p.want = maxSpd(p); return; }
     }
+    /* the one-two: the man who asked for it back runs into the space for it */
+    if (G.give && G.give.ret && G.give.from === p && G.give.pt) { p.tx = G.give.pt.x; p.ty = G.give.pt.y; p.want = maxSpd(p); return; }
     if (has === t) {
       /* attacking: shape, with runs; a forward with a run on goes in behind */
       const s = shape(G, p);
@@ -754,6 +759,8 @@
         continue;
       }
       if (G.phase !== 'play') continue;
+      if (!has && (e.k === 'through' || ((e.k === 'run' || e.k === 'call') && !e.up)) && G.give && G.give.from === p && askBack(G)) continue;
+      if (G.give && G.give.to === p && !has && e.k === 'through' && askBack(G)) continue;   // Kick-off: control moved to the receiver
       if (has || (near && (e.k === 'shoot' || e.k === 'pass' || e.k === 'through'))) { userKick(G, p, e, dir); continue; }
       if (e.k === 'tackle' && !e.up) { const c = b.owner; if (c && c.t !== p.t && d2(c, p) < 2.4) { p.face = Math.atan2(c.x - p.x, c.y - p.y); tackle(G, p, c, true); } else { p.act = { k: 'kick', t: 0, T: 0.3, foot: 'R', p: 0.3 }; } }
       if (e.k === 'slide' && !e.up) slide(G, p, dir.x, dir.y);
@@ -780,28 +787,52 @@
         const ox = q.x - p.x, oy = q.y - p.y, ol = hyp(ox, oy); if (ol < 3 || ol > 55) continue;
         const ang = Math.acos(clamp((ox * dir.x + oy * dir.y) / ol, -1, 1));
         if (ang > 0.7) continue;
-        const s = ang * 26 + ol * 0.18 - (e.k === 'through' && FWD(q.role) ? 4 : 0);
+        /* the assist: the man the stick points at, but an open one with a clear lane wins a close call */
+        const open = Math.min(6, teamOf(G, opp(p.t)).reduce((m, o) => Math.min(m, d2(o, q)), 99));
+        let lane = 0; for (const o of teamOf(G, opp(p.t))) { const sd = segDist(o, p, q), stt = segT(o, p, q); if (stt > 0.1 && stt < 0.95 && sd < 1.6) lane += (1.6 - sd); }
+        const s = ang * 26 + ol * 0.18 - open * 0.9 + (e.lob ? 0 : lane * 2.2) - (e.k === 'through' && FWD(q.role) ? 4 : 0);
         if (s < bs) { bs = s; best = q; }
       }
-      const lob = !!e.long;
+      const lob = !!e.lob || !!e.long, pw = e.pw == null ? 0.3 : e.pw;
       const wide = Math.abs(p.x - CX) > 16 && depth(G, p.t, p.y) > L - 32;
       if (e.k === 'through') {
         const q = best || mates.filter(q => FWD(q.role)).sort((a, c) => d2(a, p) - d2(c, p))[0];
         const line = offLine(G, p.t), aheadD = Math.min(L - 8, Math.max(depth(G, p.t, q.y) + 7, Math.min(line + 6, depth(G, p.t, q.y) + 12)));
         const pt = { x: clamp(q.x + dir.x * 3, 5, W - 5), y: fromDepth(G, p.t, aheadD) };
         q.run = G.t + 2.5;
-        pass(G, p, null, pt, { through: true, lob, to: q });
-        G.pendingTo = q;
+        pass(G, p, null, pt, { through: true, lob, to: q, pw });
+        G.pendingTo = q; give(G, p, q);
         return;
       }
-      if (lob && wide && !setPiece) {
+      if ((lob || pw > 0.45) && wide && !setPiece) {
         const box = mates.filter(q => depth(G, p.t, q.y) > L - 20 && Math.abs(q.x - CX) < 13);
         const q = box.sort((a, c) => d2(a, { x: CX, y: gy }) - d2(c, { x: CX, y: gy }))[0];
         if (q) { pass(G, p, null, { x: q.x, y: q.y + G.side[p.t] * 1 }, { lob: true, cross: true, to: q }); G.pendingTo = q; return; }
       }
-      if (best) pass(G, p, best, null, { lob });
-      else pass(G, p, null, { x: p.x + dir.x * 16, y: p.y + dir.y * 16 }, { lob });
+      if (best) { pass(G, p, best, null, { lob, pw }); give(G, p, best); }
+      else pass(G, p, null, { x: p.x + dir.x * (10 + pw * 18), y: p.y + dir.y * (10 + pw * 18) }, { lob, pw });
     }
+  }
+  /* the one-two: you pass, ask for it back while it travels (Through, or Run in a career), and he plays it first time
+     into your run */
+  function give(G, p, q) { if (p.t === 0) G.give = { from: p, to: q, t: G.t, ret: false }; }
+  function askBack(G) {
+    const g = G.give; if (!g || g.ret || G.t - g.t > 2.6) return false;
+    const b = G.ball; if (!(b.owner === g.to || (G.pass && G.pass.to === g.to) || G.pendingTo === g.to)) return false;
+    /* he goes: into the space a few paces ahead, drifting inside */
+    const p = g.from; g.ret = true;
+    g.pt = { x: clamp(p.x + (CX - p.x) * 0.15, 4, W - 4), y: fromDepth(G, p.t, Math.min(L - 7, depth(G, p.t, p.y) + 9)) };
+    G.events.push({ k: 'call' }); return true;
+  }
+  function giveBack(G) {
+    const g = G.give; if (!g) return;
+    if (G.t - g.t > 4.5 || G.phase !== 'play') { G.give = null; return; }
+    const b = G.ball, q = g.to, p = g.from;
+    if (!g.ret || b.owner !== q || q.act || p.bench || p.off) return;
+    /* first time, led into his run (to his feet if he stood still) */
+    G.give = null;
+    pass(G, q, p, null, { through: true, pw: 0.35 });
+    G.pendingTo = p; G.events.push({ k: 'onetwo' }); say(G, `${q.name} plays it first time: one-two!`, 'chance');
   }
   function switchPlayer(G) {
     const b = G.ball, mine = teamOf(G, 0).filter(q => q.role !== 'GK' && q !== G.ctl);
@@ -868,6 +899,7 @@
     /* play */
     autoSwitch(G);
     if (G.userOn) userControl(G, dt);
+    giveBack(G);
     for (const p of G.ps) {
       if (p.bench || p.off) continue;
       if (p.cd > 0) p.cd -= dt;
@@ -1036,6 +1068,14 @@
       if (G.shot && G.shot.by.t !== p.t && dd < 0.5 && b.z < 1.85 && sp > 9 && p.role !== 'GK') {
         b.vy = -b.vy * rnd(0.15, 0.4); b.vx = rnd(-5, 5); b.vz = rnd(0.5, 3); b.spin = 0; b.last = p; G.lastTouch = p; G.shot = null;
         say(G, `Blocked by ${p.name}!`, 'chance'); G.events.push({ k: 'block' }); return;
+      }
+      /* a lofted pass to a teammate: he kills it on his chest or thigh instead of heading it away (crosses are for heading) */
+      if (G.pass && G.pass.from.t === p.t && G.pass.from !== p && G.pass.kind !== 'cross' && b.z > 0.6 && b.z < 1.95 && dd < 1.1 && b.vz < 2 && p.role !== 'GK') {
+        if (G.offside.has(p)) { G.stats[p.t].offsides++; G.events.push({ k: 'offside' }); return stop(G, 'fk', opp(p.t), p.x, p.y, `Offside: ${p.name}.`); }
+        G.offside.clear(); G.stats[p.t].passOk++; G.pass.from.st.pc++;
+        b.owner = p; b.z = 0; b.vz = 0; p.hold = 0; G.lastTouch = p; G.pass = null; G.shot = null; G.pendingTo = null;
+        p.act = p.act || { k: 'head', t: 0.3, T: 0.5 }; G.events.push({ k: 'touch' });
+        return;
       }
       /* headers */
       if (b.z > 1.25 && b.z < 2.6 && dd < 1.1 && p.cd <= 0) {
