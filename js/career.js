@@ -240,7 +240,7 @@
   }
   const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(C)); } catch (e) { /* private mode: the career lives for this visit */ } }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(C)); } catch (e) { /* private mode: the career lives for this visit */ } if (PS.account) PS.account.saved(); }
   function load() {
     try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && s.v === 1 && s.league && s.a) { C = s; if (Array.isArray(C.clubOvr)) C.clubOvr.forEach((v, i) => { if (D.CLUBS[i]) D.CLUBS[i].ovr = v; }); } } catch (e) { C = null; }
     return C;

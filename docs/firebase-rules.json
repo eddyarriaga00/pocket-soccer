@@ -1,0 +1,132 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "chat": {
+      "global": {
+        ".read": "auth != null",
+        ".indexOn": [
+          "at"
+        ],
+        "$m": {
+          ".write": "auth != null && !data.exists() && newData.exists() && root.child('bans').child(auth.uid).val() !== true",
+          ".validate": "newData.hasChildren(['uid', 'name', 'text', 'at']) && newData.child('uid').val() === auth.uid && newData.child('at').val() === now && (!root.child('last').child(auth.uid).exists() || now - root.child('last').child(auth.uid).val() >= 2500) && newData.parent().parent().parent().child('last').child(auth.uid).val() === now",
+          "uid": {
+            ".validate": "newData.isString()"
+          },
+          "name": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
+          },
+          "text": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 140"
+          },
+          "at": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "last": {
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.val() === now"
+      }
+    },
+    "presence": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.val() === true"
+      }
+    },
+    "reports": {
+      "$r": {
+        ".write": "auth != null && !data.exists() && newData.exists()",
+        ".validate": "newData.hasChildren(['by', 'uid', 'msg', 'text', 'at']) && newData.child('by').val() === auth.uid && newData.child('at').val() === now",
+        "by": {
+          ".validate": "newData.isString()"
+        },
+        "uid": {
+          ".validate": "newData.isString() && newData.val().length <= 64"
+        },
+        "msg": {
+          ".validate": "newData.isString() && newData.val().length <= 64"
+        },
+        "text": {
+          ".validate": "newData.isString() && newData.val().length <= 140"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "bans": {
+      ".read": false,
+      ".write": false
+    },
+    "saves": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'password'",
+        ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'password'",
+        ".validate": "newData.hasChildren(['at', 'dev', 'z', 'data']) && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000 && newData.child('dev').isString() && newData.child('dev').val().length <= 40 && (newData.child('z').val() === 0 || newData.child('z').val() === 1) && newData.child('data').isString() && newData.child('data').val().length <= 6000000",
+        "at": {},
+        "dev": {},
+        "z": {},
+        "data": {},
+        "name": {
+          ".validate": "newData.isString() && newData.val().length <= 24"
+        },
+        "players": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 500"
+        },
+        "who": {
+          "$i": {
+            ".validate": "$i.matches(/^[0-2]$/) && newData.isString() && newData.val().length <= 30"
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "accounts": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'password'",
+        ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'password'",
+        ".validate": "newData.hasChildren(['name', 'at'])",
+        "name": {
+          ".validate": "newData.isString() && newData.val().length <= 24"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "soccer": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'password'",
+        ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'password'",
+        ".validate": "newData.hasChildren(['at', 'dev', 'z', 'data']) && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000 && newData.child('dev').isString() && newData.child('dev').val().length <= 40 && newData.child('z').val() === 0 && newData.child('data').isString() && newData.child('data').val().length <= 3000000",
+        "at": {},
+        "dev": {},
+        "z": {},
+        "data": {},
+        "name": {
+          ".validate": "newData.isString() && newData.val().length <= 24"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}

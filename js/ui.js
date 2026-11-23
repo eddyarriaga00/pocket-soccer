@@ -25,6 +25,7 @@
     modelP = PS.Model ? PS.Model.load() : Promise.resolve(null);
     modelP.then(() => { if (scr.querySelector('.hub') && !M) { const y = scr.scrollTop; hub(); scr.scrollTop = y; } });
     K.load();
+    if (PS.account) PS.account.start();
     menu();
   }
   const crest = (c, size = 34) => `<span class="crest" style="--c1:${c.c1};--c2:${c.c2};width:${size}px;height:${size}px"><b>${c.ab[0]}</b></span>`;
@@ -42,8 +43,9 @@
       <button class="${c ? 'btn2' : 'go'}" id="new">${c ? 'New career' : 'My Career'}${c ? '' : '<small>From 17-year-old debut to retirement</small>'}</button>
       <button class="btn2" id="ko">Kick-off<small>A full match, you run the whole team</small></button>
       <div class="row2"><button class="btn2" id="how">How to play</button><button class="btn2" id="set">Settings</button></div>
+      <button class="btn2" id="acct">Account<small>${PS.account && PS.account.signedIn() ? 'Signed in: your career is saved in the cloud' : 'One sign-in for all the pocket games'}</small></button>
       <p class="fine">Every club and player is fictional</p></div>`, 'menu-s');
-    on('#cont', hub); on('#new', () => c ? confirmNew() : newCareer()); on('#ko', kickoffSetup); on('#how', how); on('#set', settings);
+    on('#cont', hub); on('#new', () => c ? confirmNew() : newCareer()); on('#ko', kickoffSetup); on('#how', how); on('#set', settings); on('#acct', () => PS.account.open(() => { K.load(); menu(); }));
   }
   function confirmNew() {
     show(`<div class="page"><h2>Start again?</h2><p>This replaces ${esc(K.C.name)}’s career on this device.</p>
