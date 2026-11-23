@@ -27,8 +27,8 @@
     if (!c.social) c.social = { hype: 12, posted: -1, callout: null, backed: 0, ate: 0, quotes: [], hist: [c.fans], dms: [], dmKey: -1, deals: [], offer: null, hot: 0 };
     return c.social;
   }
-  const gameNo = () => C().totals.apps + C().league.round * 0.001;   // advances every matchday, played or not
-  const mdKey = () => C().season * 100 + C().league.round;
+  const gameNo = () => C().totals.apps + (C().wk || 0) * 0.001;   // advances every matchday, played or not
+  const mdKey = () => C().season * 100 + (C().wk || 0);
   const handle = () => '@' + C().name.toLowerCase().replace(/[^a-z]/g, '') + C().num;
   const clubHandle = cl => '@' + cl.name.toLowerCase().replace(/[^a-z]/g, '');
   const lastName = n => String(n).trim().split(/\s+/).pop();
@@ -109,7 +109,7 @@
     if (cl && cl.opp === ctx.oppIdx) {
       const ok = cl.kind === 'guarantee' ? won : won && ctx.played && r >= 7;
       if (ok) { so.backed++; c.xp += cl.kind === 'guarantee' ? 120 : 80; c.fans = Math.round(c.fans * (cl.kind === 'guarantee' ? 1.08 : 1.05)) + 300; so.hype = clamp(so.hype + 12, 0, 100);
-        c.news.unshift({ s: c.season, r: c.league.round, t: `${c.name} backs up the talk against ${ctx.them.name}.` });
+        c.news.unshift({ s: c.season, r: c.wk || 0, t: `${c.name} backs up the talk against ${ctx.them.name}.` });
         c.feed.unshift(post(fanH(), `${lastName(c.name)} said it. Then did it.`, {}, { k: 0.02, hot: true }), post('@' + PUNDITS[0][1], `"${cl.quote}" He was right.`, {}, { name: PUNDITS[0][0], ver: true, k: 0.02 })); }
       else { so.ate++; c.trust = clamp(c.trust - 4, 5, 100); so.hype = clamp(so.hype - 14, 0, 100); c.fans = Math.round(c.fans * 0.985);
         c.feed.unshift(post(clubHandle(ctx.them), `"${cl.quote}"`, {}, { name: ctx.them.name, ver: true, club: ctx.them, k: 0.04, hot: true }), post(fanH(), any(['This aged like milk.', 'Maybe do the talking after the match next time.', 'Screenshot was worth it.']), {}, { k: 0.02 })); }
@@ -164,7 +164,7 @@
     const c = C(), so = S(), o = so.offer; if (!o) return;
     if (yes) { so.deals.push({ name: o.name, kind: o.kind, col: o.col }); c.xp += o.sign; c.fans = Math.round(c.fans * 1.02) + 200;
       c.feed.unshift(post('@' + o.name.toLowerCase().replace(/[^a-z]/g, ''), `Welcome to the ${o.name} family, ${c.name}. ${o.line}`, {}, { name: o.name, ver: true, col: o.col }), myPost(`Proud to be with ${o.name}.`, 1.2));
-      c.news.unshift({ s: c.season, r: c.league.round, t: `${c.name} signs with ${o.name} (+${o.sign} XP, and more every match).` }); }
+      c.news.unshift({ s: c.season, r: c.wk || 0, t: `${c.name} signs with ${o.name} (+${o.sign} XP, and more every match).` }); }
     so.offer = null; K().save();
   }
   function vote(i, k) { const f = C().feed[i]; if (!f || !f.poll || f.poll.v != null) return; f.poll.v = k; f.poll.n++; K().save(); }
@@ -185,7 +185,7 @@
   function answer(a) {
     const c = C(), so = S();
     c.trust = clamp(c.trust + a[1], 5, 100); so.hype = clamp(so.hype + a[2], 0, 100); c.fans = Math.round(c.fans * (1 + a[3] / 100));
-    so.quotes.unshift({ q: a[0], tone: a[4], wk: `Season ${c.season}, matchday ${c.league.round}` }); so.quotes = so.quotes.slice(0, 20);
+    so.quotes.unshift({ q: a[0], tone: a[4], wk: `Season ${c.season}, week ${c.wk || 0}` }); so.quotes = so.quotes.slice(0, 20);
     if (a[4] === 'brash') c.feed.unshift(post('@' + PRESS[0][1], `${lastName(c.name)} after the match: "${a[0]}"`, {}, { name: PRESS[0][0], ver: true, k: 0.02, hot: true }));
     K().save();
   }

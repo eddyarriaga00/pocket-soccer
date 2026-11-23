@@ -270,3 +270,15 @@ p{margin:8px 0}
 .lbl small{font-weight:600;letter-spacing:0;text-transform:none;margin-left:6px}
 .story{margin:10px 0 2px;padding:9px 12px;border-radius:12px;background:linear-gradient(90deg,rgba(255,210,63,.2),transparent);border-left:3px solid var(--gold);text-align:left}
 .story b{display:block;font-family:var(--display);font-size:16px} .story span{font-size:13px;color:var(--mute)}
+/* the world: league pickers, knockout brackets */
+.lgsel{margin:0 0 6px}
+#lgv{margin:4px 0 2px}
+.ko{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.kor{background:var(--panel2);border-radius:10px;padding:6px 10px}
+.kor .lbl{margin:2px 0 4px}
+.kor p{margin:3px 0;font-size:13.5px;font-variant-numeric:tabular-nums}
+.kor p.me{font-weight:700}
+.kor .w{font-weight:700;color:var(--ink)}
+.kor small{color:var(--mute)}
+.champ{font-weight:700;margin:6px 0 2px}
+.result .pos{color:#4ade80}.result .neg{color:#f87171}

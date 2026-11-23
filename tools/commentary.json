@@ -766,6 +766,37 @@
     "text": "Shot, shot!",
     "ex": 0.75
    }
+  ],
+  "europe": [
+   {
+    "who": "pbp",
+    "text": "It's a Champions Cup night, and the lights are on.",
+    "ex": 0.6
+   },
+   {
+    "who": "pbp",
+    "text": "The best clubs on the continent. This is the big stage.",
+    "ex": 0.6
+   }
+  ],
+  "intl": [
+   {
+    "who": "pbp",
+    "text": "International football tonight. A whole country watching.",
+    "ex": 0.55
+   },
+   {
+    "who": "pbp",
+    "text": "The anthems are done. Time for the football.",
+    "ex": 0.55
+   }
+  ],
+  "worldcup": [
+   {
+    "who": "pbp",
+    "text": "Welcome to the World Cup! The biggest stage there is.",
+    "ex": 0.75
+   }
   ]
  }
 }

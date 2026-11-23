@@ -71,18 +71,24 @@
 
   /* ------------------------------------------------------------ kick-off */
   function kickoffSetup() {
-    const st = { a: 0, b: 1, half: S.half };
-    const list = k => D.CLUBS.map((c, i) => `<button class="clubc sm ${st[k] === i ? 'on' : ''}" data-k="${k}" data-i="${i}">${crest(c, 26)}<span><b>${c.name}</b><small>rated ${c.ovr}</small></span></button>`).join('');
+    const st = { a: 0, b: 1, half: S.half, la: 0, lb: 0 };
+    const T = r => typeof r === 'string' ? D.nationTeam(r.slice(2)) : D.CLUBS[r];
+    /* each side picks from a league, or from the national teams */
+    const pool = lg => lg === 'n' ? Object.keys(D.NATION).sort((x, y) => D.NATION[y][2] - D.NATION[x][2]).map(n => 'n:' + n) : D.CLUBS.map((c, i) => c.lg === lg ? i : -1).filter(i => i >= 0);
+    const lgSel = k => `<select class="lgsel" data-k="${k}">${D.LEAGUES.map(l => `<option value="${l.id}"${st['l' + k] === l.id ? ' selected' : ''}>${l.name}</option>`).join('')}<option value="n"${st['l' + k] === 'n' ? ' selected' : ''}>National teams</option></select>`;
+    const list = k => lgSel(k) + pool(st['l' + k]).map(i => { const c = T(i); return `<button class="clubc sm ${st[k] === i ? 'on' : ''}" data-k="${k}" data-i="${i}">${crest(c, 26)}<span><b>${c.name}</b><small>rated ${c.ovr}</small></span></button>`; }).join('');
     const draw = () => {
       show(`<div class="page"><button class="back" id="bk">‹ Menu</button><h2>Kick-off</h2>
-        <div class="vs">${crest(D.CLUBS[st.a], 40)}<b>${D.CLUBS[st.a].ab}</b><span>v</span><b>${D.CLUBS[st.b].ab}</b>${crest(D.CLUBS[st.b], 40)}</div>
+        <div class="vs">${crest(T(st.a), 40)}<b>${T(st.a).ab}</b><span>v</span><b>${T(st.b).ab}</b>${crest(T(st.b), 40)}</div>
         <div class="lbl">Half length</div>${seg('half', [[120, '2 min'], [180, '3 min'], [240, '4 min'], [360, '6 min']], st.half)}
         <button class="go" id="play">Kick off</button>
         <div class="two"><div><div class="lbl">Your team</div>${list('a')}</div><div><div class="lbl">Opponent</div>${list('b')}</div></div></div>`);
       segs(st);
       on('#bk', menu);
-      on('.clubc', e => { const b = e.currentTarget; st[b.dataset.k] = +b.dataset.i; if (st.a === st.b) st[b.dataset.k === 'a' ? 'b' : 'a'] = (st.a + 1) % D.CLUBS.length; draw(); });
-      on('#play', () => playMatch({ teams: [D.CLUBS[st.a], D.CLUBS[st.b]], mode: 'team', halfLen: st.half }, G => kickoffResult(G, st)));
+      const ref = v => /^n:/.test(v) ? v : +v;
+      on('.clubc', e => { const b = e.currentTarget, k = b.dataset.k, o = k === 'a' ? 'b' : 'a'; st[k] = ref(b.dataset.i); if (st.a === st.b) { const p = pool(st['l' + o]); st[o] = p.find(x => x !== st[k]); } draw(); });
+      scr.querySelectorAll('.lgsel').forEach(x => x.onchange = () => { const k = x.dataset.k, lg = x.value === 'n' ? 'n' : +x.value; st['l' + k] = lg; const p = pool(lg); st[k] = p.find(i => i !== st[k === 'a' ? 'b' : 'a']); draw(); });
+      on('#play', () => playMatch({ teams: [T(st.a), T(st.b)], mode: 'team', halfLen: st.half }, G => kickoffResult(G, st)));
     };
     draw();
   }
@@ -118,7 +124,7 @@
     M = { G, onEnd, last: performance.now(), acc: 0, paused: false, toasts: [] };
     PS.R3.attach(G); PS.Controls.attach(G); PS.R3.cam = G.mode === 'player' ? S.camCareer : S.cam;
     if (S.sound) PS.Audio.start();
-    if (PS.booth) { PS.booth.enabled = S.comm !== false; PS.booth.load(); Promise.resolve(PS.booth.load()).then(() => { PS.booth.warm(); setTimeout(() => { if (!S.sound) return; const st = G.mode === 'player' && K.C ? K.story() : null, key = st && { debut: 'debut', derby: 'derby', newclub: 'intro', oldclub: 'rival' }[st.k]; PS.booth.say(key && PS.VO[key] ? key : 'intro', { prio: 3, follow: 0.6, ana: 'intro_ana' }); }, 600); }); }
+    if (PS.booth) { PS.booth.enabled = S.comm !== false; PS.booth.load(); Promise.resolve(PS.booth.load()).then(() => { PS.booth.warm(); setTimeout(() => { if (!S.sound) return; const st = G.mode === 'player' && K.C ? K.story() : null, key = st && (st.k === 'final' || (st.k === 'tour' && /final$/.test(st.title)) ? 'cupfinal' : st.k === 'tour' && /World Cup/.test(st.title) ? 'worldcup' : { debut: 'debut', derby: 'derby', newclub: 'intro', oldclub: 'rival', europe: 'europe', intl: 'intl', cap: 'intl', tour: 'intl' }[st.k]); PS.booth.say(key && PS.VO[key] ? key : 'intro', { prio: 3, follow: 0.6, ana: 'intro_ana' }); }, 600); }); }
     ov.hidden = true;
     /* on the bench: the match runs on (not drawn) until you come on */
     if (G.me && G.me.bench) {
@@ -219,9 +225,12 @@
 
   /* ------------------------------------------------------------ new career */
   function newCareer() {
-    const st = { pos: 'ST', foot: 'Right', nation: 'United States', club: null, skin: 3, hair: 'fade', cele: 'arms' };
-    const weak = D.CLUBS.map((c, i) => ({ c, i })).sort((a, b) => a.c.ovr - b.c.ovr).slice(0, 4);
+    const st = { pos: 'ST', foot: 'Right', nation: 'United States', club: null, skin: 3, hair: 'fade', cele: 'arms', lg: 0 };
+    /* the four smallest clubs of the league you choose: everybody starts at the bottom */
+    const weakOf = lg => D.CLUBS.map((c, i) => ({ c, i })).filter(x => x.c.lg === lg).sort((a, b) => a.c.ovr - b.c.ovr).slice(0, 4);
+    let weak = weakOf(st.lg);
     st.club = weak[0].i;
+    const clubList = () => weak.map(({ c, i }) => `<button class="clubc ${i === st.club ? 'on' : ''}" data-i="${i}">${crest(c)}<span><b>${c.name}</b><small>${c.ground} · rated ${c.ovr}</small></span></button>`).join('');
     show(`<div class="page">
       <button class="back" id="bk">‹ Menu</button>
       <h2>New career</h2>
@@ -233,14 +242,17 @@
       <div class="lbl">Skin tone</div><div class="swatch" data-k="skin">${PS.SKIN.map((c, i) => `<button data-v="${i}" class="${i === st.skin ? 'on' : ''}" style="background:${c}" aria-label="Skin tone ${i + 1}"></button>`).join('')}</div>
       <div class="lbl">Hair</div>${seg('hair', [['fade', 'Fade'], ['short', 'Short'], ['curly', 'Curly'], ['afro', 'Afro'], ['buzz', 'Buzz'], ['locs', 'Locs'], ['long', 'Long'], ['bald', 'Bald']], st.hair)}
       <div class="lbl">Goal celebration</div>${seg('cele', [['arms', 'Arms up'], ['knee', 'Knee slide'], ['point', 'Point up'], ['plane', 'Airplane'], ['dance', 'Dance']], st.cele)}
+      <div class="lbl">Where you start</div><select id="lgp">${D.LEAGUES.map(l => `<option value="${l.id}">${l.name} · ${l.country}</option>`).join('')}</select>
       <div class="lbl">Your first club</div>
-      <div class="clubs">${weak.map(({ c, i }) => `<button class="clubc ${i === st.club ? 'on' : ''}" data-i="${i}">${crest(c)}<span><b>${c.name}</b><small>${c.ground} · rated ${c.ovr}</small></span></button>`).join('')}</div>
+      <div class="clubs" id="clubs">${clubList()}</div>
       <button class="go" id="sign">Sign your first contract</button></div>`);
     const desc = { ST: 'Score goals. Runs in behind, finishing, headers, penalties.', W: 'Beat your full-back, cross, cut inside and shoot.', CM: 'Run the game: passing, through balls, shots from range, set pieces.' };
     const upd = () => { $('#posd').textContent = desc[st.pos]; };
     upd(); segs(st, upd);
     scr.querySelectorAll('.swatch button').forEach(b => b.addEventListener('click', () => { st.skin = +b.dataset.v; scr.querySelectorAll('.swatch button').forEach(x => x.classList.toggle('on', x === b)); }));
-    on('.clubc', e => { const b = e.currentTarget; st.club = +b.dataset.i; scr.querySelectorAll('.clubc').forEach(x => x.classList.toggle('on', x === b)); });
+    const wireClubs = () => on('.clubc', e => { const b = e.currentTarget; st.club = +b.dataset.i; scr.querySelectorAll('.clubc').forEach(x => x.classList.toggle('on', x === b)); });
+    wireClubs();
+    $('#lgp').onchange = () => { st.lg = +$('#lgp').value; weak = weakOf(st.lg); st.club = weak[0].i; $('#clubs').innerHTML = clubList(); wireClubs(); };
     on('#bk', menu);
     on('#sign', () => {
       const name = $('#nm').value.trim() || 'Alex Rivera';
@@ -266,7 +278,7 @@
   function hub() {
     const c = K.C; if (!c) return menu();
     if (c.summary) return seasonEnd();
-    const tabs = [['home', 'Home'], ['social', 'Social'], ['table', 'League'], ['skills', 'Skills' + (affordable() ? ' •' : '')], ['career', 'Career']];
+    const tabs = [['home', 'Home'], ['social', 'Social'], ['table', 'Tables'], ['skills', 'Skills' + (affordable() ? ' •' : '')], ['career', 'Career']];
     const body = tab === 'home' ? homeTab() : tab === 'social' ? `<div class="soc">${PS.social.tab(socTab)}</div>` : tab === 'table' ? tableTab() : tab === 'skills' ? skillsTab() : careerTab();
     show(`<div class="hub"><div class="hubtop"><button class="back" id="mn">‹ Menu</button><span>Season ${c.season} · ${c.year}/${String(c.year + 1).slice(2)}</span></div>
       ${card()}
@@ -274,6 +286,7 @@
       <div class="tabbody">${body}</div></div>`);
     on('#mn', menu);
     on('.tabs button', e => { tab = e.currentTarget.dataset.t; hub(); });
+    const lv = $('#lgv'); if (lv) lv.onchange = () => { lgView = lv.value; const y = scr.scrollTop; hub(); scr.scrollTop = y; };
     on('#play', () => matchDay(false));
     on('#simm', () => matchDay(true));
     on('.up', e => { if (K.upgrade(e.currentTarget.dataset.k)) hub(); });
@@ -286,30 +299,45 @@
   const avg = a => a.length ? (a.reduce((s, v) => s + v, 0) / a.length).toFixed(2) : '–';
   const rc = r => r >= 8 ? 'hi' : r >= 7 ? 'good' : r >= 6 ? 'ok' : 'bad';
   function homeTab() {
-    const c = K.C, f = K.nextFixture(), L = c.league;
-    const opp = f && K.club(f.opp);
+    const c = K.C, f = K.nextFixture();
+    const opp = f && K.club(f.opp), us = f && K.club(f.us);
     const pos = K.table().findIndex(r => r.i === c.club) + 1;
-    const last = c.last && c.last.round === L.round - 1 ? c.last : null;
-    const r = K.role();
-    return `${f ? `<div class="next">
+    const last = c.last && c.last.s === c.season ? c.last : null;
+    const r = f ? K.role(f) : K.role();
+    const where = f ? (f.neutral ? 'Neutral ground' : f.home ? 'Home' : 'Away') : '';
+    const about = !f ? '' : f.k === 'lg' ? `${opp.name} · rated ${opp.ovr} · ${K.ord(K.table().findIndex(x => x.i === f.opp) + 1)} in the table`
+      : f.k === 'cl' ? `${opp.name} · rated ${opp.ovr} · ${D.LEAGUES[opp.lg].country}` : `${opp.name} · rated ${opp.ovr}`;
+    const lastUs = last ? K.club(last.us == null ? c.club : last.us) : null;
+    return `${f ? `<div class="next ${f.k}">
         ${(st => st ? `<div class="story"><b>${esc(st.title)}</b><span>${esc(st.sub)}</span></div>` : '')(K.story(f))}
-        <div class="lbl">Matchday ${f.round + 1} of ${L.fx.length} · ${f.home ? 'Home' : 'Away'}</div>
-        <div class="vs">${crest(K.club(), 40)}<b>${K.club().ab}</b><span>v</span><b>${opp.ab}</b>${crest(opp, 40)}</div>
-        <p>${opp.name} · rated ${opp.ovr} · ${K.ord(K.table().findIndex(x => x.i === f.opp) + 1)} in the table</p>
-        <p class="mute">${r === 'starter' ? 'You start.' : r === 'rotation' ? 'You might start, or come off the bench.' : 'You start on the bench. Make your minutes count.'}</p>
+        <div class="lbl">${esc(f.comp)} · ${esc(f.stage)} · ${where}</div>
+        <div class="vs">${crest(us, 40)}<b>${us.ab}</b><span>v</span><b>${opp.ab}</b>${crest(opp, 40)}</div>
+        <p>${about}</p>
+        <p class="mute">${f.k === 'nat' || f.k === 'tour' ? (r === 'starter' ? `You start for ${esc(c.nation)}.` : r === 'rotation' ? 'You might start, or come off the bench.' : 'You are in the squad: a chance off the bench.') : r === 'starter' ? 'You start.' : r === 'rotation' ? 'You might start, or come off the bench.' : 'You start on the bench. Make your minutes count.'}</p>
         <button class="go" id="play">Play match</button><button class="btn2 sm" id="simm">Sim match</button></div>` : ''}
-      ${last ? `<div class="lastr"><div class="lbl">Last match</div><p>${K.club().ab} ${last.score[0]}–${last.score[1]} ${K.club(last.opp).ab}${last.rating ? ` · your rating <b class="rt ${rc(last.rating.r)}">${last.rating.r.toFixed(1)}</b>` : ' · unused sub'}</p></div>` : ''}
+      ${last ? `<div class="lastr"><div class="lbl">Last match · ${esc(last.comp || 'League')}</div><p>${lastUs.ab} ${last.score[0]}–${last.score[1]} ${K.club(last.opp).ab}${last.pens ? ` (${last.pens.us}–${last.pens.them} pens)` : ''}${last.rating ? ` · your rating <b class="rt ${rc(last.rating.r)}">${last.rating.r.toFixed(1)}</b>` : ' · unused sub'}</p></div>` : ''}
       <div class="mini"><div><b>${K.ord(pos)}</b><span>in the league</span></div><div><b>${c.ss.goals}</b><span>goals</span></div><div><b>${c.ss.assists}</b><span>assists</span></div><div><b>${avg(c.ss.ratings)}</b><span>avg rating</span></div></div>
       <div class="lbl">Social <small>${PS.social.short(c.fans || 0)} followers · hype ${PS.social.S().hype}</small></div><div class="feedl">${(c.feed || []).filter(f => f.kind !== 'trend').slice(0, 2).map(f => PS.social.card(f, -1)).join('') || '<p class="mute">Play a match and the internet will have something to say.</p>'}</div><button class="btn2 sm" id="tosoc">Open Social</button>
       <div class="lbl">News</div><ul class="news">${c.news.slice(0, 8).map(n => `<li>${esc(n.t)}</li>`).join('')}</ul>`;
   }
+  /* the Tables tab: any league in the world (yours first), then the knockouts you are in */
+  let lgView = null;
+  function bracket(Kn, me) {
+    if (!Kn) return '';
+    const nm = r => r == null ? '<i>bye</i>' : esc(K.team(r).ab);
+    const rows = Kn.rounds.map(R => `<div class="kor"><div class="lbl">${R.st}</div>${R.res.filter(x => x[0] != null && x[1] != null).map(([a, b, x, y, p]) => `<p class="${a === me || b === me ? 'me' : ''}"><span class="${(p ?? (x > y ? a : b)) === a ? 'w' : ''}">${nm(a)}</span> ${x}–${y} <span class="${(p ?? (x > y ? a : b)) === b ? 'w' : ''}">${nm(b)}</span>${p != null ? ' <small>pens</small>' : ''}</p>`).join('')}</div>`).join('');
+    const next = Kn.win == null ? `<div class="kor"><div class="lbl">Next: ${Kn.alive.length === 2 ? 'Final' : Kn.alive.length === 4 ? 'Semi-finals' : Kn.alive.length === 8 ? 'Quarter-finals' : 'Round of ' + Kn.alive.length}</div>${Kn.alive.reduce((o, a, i) => i % 2 ? o : o.concat(`<p class="${a === me || Kn.alive[i + 1] === me ? 'me' : ''}">${nm(a)} v ${nm(Kn.alive[i + 1])}</p>`), []).join('')}</div>` : `<p class="champ">🏆 ${esc(K.team(Kn.win).name)}</p>`;
+    return `<div class="lbl">${esc(Kn.name)}</div><div class="ko">${rows}${next}</div>`;
+  }
   function tableTab() {
-    const c = K.C, t = K.table(), sc = K.scorers(8);
-    return `<table class="tbl"><thead><tr><th>#</th><th class="l">Club</th><th>P</th><th>GD</th><th>Pts</th></tr></thead><tbody>
+    const c = K.C, mine = K.club().lg, v = lgView == null || lgView === '' ? mine : +lgView, t = K.table(v), sc = K.scorers(8, v);
+    return `<select id="lgv">${D.LEAGUES.map(l => `<option value="${l.id}"${l.id === v ? ' selected' : ''}>${l.name} · ${l.country}${l.id === mine ? ' (yours)' : ''}</option>`).join('')}</select>
+      <table class="tbl"><thead><tr><th>#</th><th class="l">Club</th><th>P</th><th>GD</th><th>Pts</th></tr></thead><tbody>
       ${t.map((r, i) => `<tr class="${r.i === c.club ? 'me' : ''}"><td>${i + 1}</td><td class="l">${crest(D.CLUBS[r.i], 18)} ${D.CLUBS[r.i].name}</td><td>${r.p}</td><td>${r.gf - r.ga > 0 ? '+' : ''}${r.gf - r.ga}</td><td><b>${r.pts}</b></td></tr>`).join('')}
       </tbody></table>
       <div class="lbl">Golden Boot race</div>
-      <table class="tbl"><tbody>${sc.length ? sc.map((s, i) => `<tr class="${s.name.startsWith('★') ? 'me' : ''}"><td>${i + 1}</td><td class="l">${esc(s.name.replace('★ ', ''))}<small> ${D.CLUBS[s.ci].ab}</small></td><td><b>${s.g}</b></td></tr>`).join('') : '<tr><td class="l mute">No goals yet.</td></tr>'}</tbody></table>`;
+      <table class="tbl"><tbody>${sc.length ? sc.map((s, i) => `<tr class="${s.name.startsWith('★') ? 'me' : ''}"><td>${i + 1}</td><td class="l">${esc(s.name.replace('★ ', ''))}<small> ${D.CLUBS[s.ci].ab}</small></td><td><b>${s.g}</b></td></tr>`).join('') : '<tr><td class="l mute">No goals yet.</td></tr>'}</tbody></table>
+      ${bracket(c.cup, c.club)}${bracket(c.cl, c.club)}${bracket(c.tour, 'n:' + c.nation)}`;
   }
   function skillsTab() {
     const c = K.C;
@@ -322,8 +350,9 @@
   function careerTab() {
     const c = K.C;
     return `<div class="mini"><div><b>${c.totals.apps}</b><span>apps</span></div><div><b>${c.totals.goals}</b><span>goals</span></div><div><b>${c.totals.assists}</b><span>assists</span></div><div><b>${c.trophies.length}</b><span>honours</span></div></div>
+      ${c.intl && c.intl.ever ? `<div class="mini"><div><b>${c.intl.caps}</b><span>caps</span></div><div><b>${c.intl.goals}</b><span>for ${esc(c.nation)}</span></div></div>` : ''}
       <div class="lbl">Seasons</div>
-      ${c.history.length ? `<table class="tbl"><thead><tr><th class="l">Season</th><th class="l">Club</th><th>Ap</th><th>G</th><th>A</th><th>Avg</th></tr></thead><tbody>${c.history.map(h => `<tr><td class="l">${h.y}/${String(h.y + 1).slice(2)}</td><td class="l">${D.CLUBS[h.club].ab} (${K.ord(h.pos)})</td><td>${h.apps}</td><td>${h.goals}</td><td>${h.assists}</td><td>${h.avg.toFixed(2)}</td></tr>`).join('')}</tbody></table>` : '<p class="mute">Your first season is under way.</p>'}
+      ${c.history.length ? `<table class="tbl"><thead><tr><th class="l">Season</th><th class="l">Club</th><th>Ap</th><th>G</th><th>A</th><th>Avg</th></tr></thead><tbody>${c.history.map(h => `<tr><td class="l">${h.y}/${String(h.y + 1).slice(2)}</td><td class="l">${D.CLUBS[h.club].ab} <small>${D.LEAGUES[h.lg ?? 0].ab}</small> (${K.ord(h.pos)})</td><td>${h.apps}</td><td>${h.goals}</td><td>${h.assists}</td><td>${h.avg.toFixed(2)}</td></tr>`).join('')}</tbody></table>` : '<p class="mute">Your first season is under way.</p>'}
       <div class="lbl">Honours</div>
       ${c.trophies.length ? `<ul class="news">${c.trophies.map(t => `<li>🏆 ${t.a} <small>${t.y}/${String(t.y + 1).slice(2)}</small></li>`).join('')}</ul>` : '<p class="mute">None yet. Golden Boot, Player of the Season, the title…</p>'}`;
   }
@@ -331,17 +360,18 @@
   /* ------------------------------------------------------------ match day (career) */
   function careerOpts() {
     const c = K.C, f = K.nextFixture(); if (!f) return null;
-    const plan = PS.sim.plan({ us: K.club(), them: K.club(f.opp), home: f.home, role: K.role(), pos: c.pos, usSquad: c.squads[c.club], themSquad: c.squads[f.opp] });
-    return { f, o: { teams: [K.club(), K.club(f.opp)], names: [c.squads[c.club], c.squads[f.opp]], home: f.home ? 0 : 1, mode: 'player', halfLen: S.half,
+    const us = K.club(f.us), them = K.club(f.opp);
+    const plan = PS.sim.plan({ us, them, home: f.home, role: K.role(f), pos: c.pos, usSquad: K.squad(f.us), themSquad: K.squad(f.opp) });
+    return { f, o: { teams: [us, them], names: [K.squad(f.us), K.squad(f.opp)], home: f.home ? 0 : 1, mode: 'player', halfLen: S.half,
       me: { name: c.name, num: c.num, pos: c.pos, a: c.a, skin: c.skin ?? 3, look: c.look || null, foot: c.foot, cele: (c.look && c.look.cele) || 'arms' }, on: plan.on, off: plan.off } };
   }
   function matchDay(sim) {
     const co = careerOpts(); if (!co) return hub();
     const done = G => {
       const res = PS.Match.result(G);
-      const m = Object.assign(res, { oppIdx: co.f.opp, home: co.f.home, round: co.f.round, user: K.C.name });
+      const m = Object.assign(res, { f: co.f, oppIdx: co.f.opp, home: co.f.home, round: co.f.round, user: K.C.name });
       const last = K.finishMatch(m);
-      const sx = PS.social.after({ us: K.club(), them: K.club(co.f.opp), oppIdx: co.f.opp, score: res.score, stats: res.stats, rating: last.rating ? last.rating.r : null, played: !!last.rating, mins: last.mins });
+      const sx = PS.social.after({ us: K.club(co.f.us), them: K.club(co.f.opp), oppIdx: co.f.opp, score: res.score, stats: res.stats, rating: last.rating ? last.rating.r : null, played: !!last.rating, mins: last.mins });
       K.save();
       fullTime(G, last, sx);
     };
@@ -353,11 +383,14 @@
     playMatch(co.o, done);
   }
   function fullTime(G, last, sx) {
-    const r = last.rating, cl = K.club(), op = K.club(last.opp);
+    const r = last.rating, cl = K.club(last.us), op = K.club(last.opp);
+    const ko = last.k !== 'lg' && last.k !== 'nat', won = last.score[0] > last.score[1] || (last.pens && last.pens.won);
     show(`<div class="page result">
-      <div class="lbl">Full time · matchday ${last.round + 1}</div>
+      <div class="lbl">Full time · ${esc(last.comp)} · ${esc(last.stage)}</div>
       <div class="vs big">${crest(cl, 44)}<b>${G.score[0]}–${G.score[1]}</b>${crest(op, 44)}</div>
-      <p class="center">${cl.name} v ${op.name}</p>${scorerList(G)}
+      <p class="center">${cl.name} v ${op.name}</p>
+      ${last.pens ? `<p class="center"><b>${last.pens.won ? 'Won' : 'Lost'} ${last.pens.us}–${last.pens.them} on penalties</b></p>` : ''}
+      ${ko ? `<p class="center ${won ? 'pos' : 'neg'}">${won ? (last.stage === 'Final' ? '🏆 Winners of the ' + esc(last.comp) + '!' : 'Through to the next round') : 'Knocked out of the ' + esc(last.comp)}</p>` : ''}${scorerList(G)}
       ${r ? `<div class="rating ${rc(r.r)}"><b>${r.r.toFixed(1)}</b><span>Match rating${r.r >= 8.3 ? ' · Man of the Match' : ''}</span></div>
       <ul class="why">${['<li><span>Starting point</span><b>6.0</b></li>'].concat(r.why.map(w => `<li><span>${w.t}</span><b class="${w.v > 0 ? 'pos' : 'neg'}">${w.v > 0 ? '+' : ''}${w.v.toFixed(2)}</b></li>`)).join('')}</ul>
       <div class="mini"><div><b>${last.mins}'</b><span>played</span></div><div><b>${last.stats.shots}</b><span>shots</span></div><div><b>${last.stats.passOk || 0}/${last.stats.passes || 0}</b><span>passes</span></div><div><b>${last.stats.tackles || 0}</b><span>tackles</span></div></div>` : '<p class="center mute">You stayed on the bench today.</p>'}
@@ -365,7 +398,7 @@
       <div class="lbl">Match stats</div>${teamStats(G)}
       ${sx ? `<div class="lbl">Social</div><p class="mute">${sx.dFans >= 0 ? '+' : ''}${PS.social.short(sx.dFans)} followers · hype ${sx.dHype >= 0 ? '+' : ''}${sx.dHype}</p><div class="feedl">${sx.posts.filter(f => f.kind !== 'trend').slice(0, 3).map(f => PS.social.card(f, -1)).join('')}</div>` : ''}
       <button class="go" id="cont">Face the press</button><button class="btn2 sm" id="skip">Skip the press</button></div>`);
-    const ctx = { us: K.club(), them: K.club(last.opp), score: G.score, stats: last.stats, played: !!last.rating };
+    const ctx = { us: cl, them: op, score: G.score, stats: last.stats, played: !!last.rating };
     on('#cont', () => press(ctx, 0));
     on('#skip', () => { tab = 'home'; hub(); });
   }
@@ -391,7 +424,7 @@
       <div class="mini"><div><b>${K.ord(s.pos)}</b><span>${K.club().ab}</span></div><div><b>${s.ss.goals}</b><span>goals</span></div><div><b>${s.ss.assists}</b><span>assists</span></div><div><b>${s.avg ? s.avg.toFixed(2) : '–'}</b><span>avg rating</span></div></div>
       ${s.awards.length ? `<ul class="news">${s.awards.map(a => `<li>🏆 ${a}</li>`).join('')}</ul>` : ''}
       <div class="lbl">Transfer window</div>
-      ${c.offers && c.offers.length ? `<p class="mute">Your agent has offers. Pick one or stay.</p>${c.offers.map(o => `<button class="clubc" data-i="${o.i}">${crest(D.CLUBS[o.i])}<span><b>${D.CLUBS[o.i].name}</b><small>rated ${D.CLUBS[o.i].ovr} · ${o.wage.toLocaleString()} a week</small></span></button>`).join('')}` : '<p class="mute">No offers this summer. Another season to prove yourself.</p>'}
+      ${c.offers && c.offers.length ? `<p class="mute">Your agent has offers. Pick one or stay.</p>${c.offers.map(o => `<button class="clubc" data-i="${o.i}">${crest(D.CLUBS[o.i])}<span><b>${D.CLUBS[o.i].name}</b><small>${D.LEAGUES[D.CLUBS[o.i].lg].name} · rated ${D.CLUBS[o.i].ovr} · ${o.wage.toLocaleString()} a week</small></span></button>`).join('')}` : '<p class="mute">No offers this summer. Another season to prove yourself.</p>'}
       <button class="go" id="stay">Stay at ${K.club().name}</button></div>`);
     on('.clubc', e => { K.nextSeason(+e.currentTarget.dataset.i); tab = 'home'; hub(); });
     on('#stay', () => { K.nextSeason(null); tab = 'home'; hub(); });

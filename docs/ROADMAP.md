@@ -10,11 +10,14 @@ Update this file after every item.
 - **Rollback points:** before every push to `main`, add a line below with the commit `main` is on and what the push
   brings. To go back: `git revert --no-edit <commit>..main`, then push `main`.
 - **Rollback points** (newest first; the commit is the last good `main` before that change):
+  - `60d65a1`, before the world: seven leagues, domestic cups, the Champions Cup, national teams and tournaments (2026-11-23).
   - `dfc55bc`, before the shooting rebuild: shot types, timed finishing, aim reticle, new keeper rules (2026-11-21).
   - `36f6243`, before the 3D rebuild: full 11 v 11 matches, the pocket player models, FIFA-style controls (2026-11-21). That commit is the one-thumb "moments" prototype.
 
 ## How to test
 
+0. `node tools/world.js 6`: six career seasons on quick results; every league, cup and tournament must finish, the
+   save must round-trip and an old one-league save must load.
 1. `node tools/harness.js 20`: twenty computer-v-computer matches with the real engine, no browser. Every match must
    finish; the averages should stay near "Balance" below.
 2. Serve the folder: `python3 tools/serve.py 48241`, open `http://localhost:48241/` at phone size (390×844). (The
@@ -67,15 +70,19 @@ Update this file after every item.
 
 ### M2 Career depth
 - [ ] Contracts, wages, release clauses; agent; summer and January windows; loans
-- [ ] Domestic cup
+- [x] Domestic cup (every league's own; knockout with byes, draws to penalties)
 - [ ] Injuries
 - [ ] Training drills (three mini-games with stars)
-- [ ] Press conferences, social feed, a rival
+- [x] Press conferences, social feed; a rival still to come
 
 ### M3 The world
-- [ ] Five leagues, two divisions each, promotion and relegation
-- [ ] Continental cup
-- [ ] National team, call-ups, World Cup every four seasons
+- [x] Seven leagues in seven countries (England, Spain, Italy, Germany, France, Brazil, USA), 72 invented clubs, all
+      simulated round by round alongside yours; transfers from any of them (2026-11-23)
+- [ ] Second divisions, promotion and relegation
+- [x] Champions Cup: the top two of every league, knockout
+- [x] National team: call-ups by rating, two international breaks a season, the World Cup every fourth summer and
+      the continental championships in between; caps and international goals
+- [x] Old saves carry over (the one league becomes the Premier Division; cups start next season). Check: `node tools/world.js 6`
 - [ ] Golden Ball, Team of the Season, Hall of Fame, records
 
 ### M4 Presentation / M5 Positions / M6 Extras

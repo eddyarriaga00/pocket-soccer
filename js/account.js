@@ -47,7 +47,7 @@
   }
   function take(rec) {
     let o = null; try { o = JSON.parse(rec.data); } catch (e) { o = null; }
-    if (!o || o.v !== 1 || !o.league || !o.a) { msg = 'The save in your account could not be read.'; return false; }
+    if (!o || o.v !== 1 || !(o.league || o.lgs) || !o.a) { msg = 'The save in your account could not be read.'; return false; }
     try { localStorage.setItem(SAVE, rec.data); } catch (e) { msg = 'This phone ran out of room for your save.'; return false; }
     keep(KEY, Object.assign(A(), { synced: rec.at, changed: rec.at })); PS.career.load(); return true;
   }

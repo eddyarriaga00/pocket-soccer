@@ -31,10 +31,11 @@
     const K = PS.career; K.wipe();
     K.create({ name: 'Test Player', nation: 'Spain', pos: 'ST', foot: 'Right', club: 11 });
     let guard = 0;
-    while (!K.C.summary && guard++ < 40) {
-      const f = K.nextFixture(), G = PS.Match.create({ teams: [K.club(), K.club(f.opp)], mode: 'player', halfLen: 120, auto: true, me: { name: K.C.name, num: 9, pos: 'ST', a: K.C.a } });
+    while (!K.C.summary && guard++ < 60) {
+      const f = K.nextFixture(); if (!f) break;
+      const G = PS.Match.create({ teams: [K.club(f.us), K.club(f.opp)], mode: 'player', halfLen: 120, auto: true, me: { name: K.C.name, num: 9, pos: 'ST', a: K.C.a } });
       while (!G.over) { PS.Match.step(G, 1 / 30); if (G.phase === 'half') PS.Match.resume(G); }
-      K.finishMatch(Object.assign(PS.Match.result(G), { oppIdx: f.opp, home: f.home, round: f.round }));
+      K.finishMatch(Object.assign(PS.Match.result(G), { f, oppIdx: f.opp, home: f.home, round: f.round }));
     }
     return K.C.summary;
   }
