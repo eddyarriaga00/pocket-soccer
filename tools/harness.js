@@ -12,12 +12,26 @@
     for (const f of ['data.js', 'physics.js', 'sim.js', 'match.js']) (0, eval)(fs.readFileSync(path.join(js, f), 'utf8'));
   }
   const PS = window.PS;
+  /* invariants, checked every tick (node tools/harness.js N half --inv): nothing NaN, at most eleven a side on the
+     pitch, the ball never with a man who is off or on the bench, a known phase */
+  const INV = typeof process !== 'undefined' && process.argv.includes('--inv');
+  const PH = new Set(['walkout', 'kickoff', 'restart', 'play', 'goal', 'half', 'full']);
+  let subs = 0;
+  function invariants(G) {
+    const bad = m => { throw new Error('invariant: ' + m + ' at minute ' + PS.Match.minute(G) + ' phase ' + G.phase); };
+    const b = G.ball; if (![b.x, b.y, b.z, b.vx, b.vy, b.vz].every(Number.isFinite)) bad('ball not finite');
+    if (!PH.has(G.phase)) bad('phase ' + G.phase);
+    for (let t = 0; t < 2; t++) { const on = G.ps.filter(p => p.t === t && !p.bench && !p.off); if (on.length > 11) bad('more than eleven on for ' + t); }
+    for (const p of G.ps) { if (p.bench || p.off) continue; if (![p.x, p.y, p.vx, p.vy, p.face].every(Number.isFinite)) bad('player not finite ' + p.name); }
+    if (b.owner && (b.owner.bench || b.owner.off)) bad('ball with a man off the pitch');
+  }
   function matches(n = 10, half = 180) {
     const tk = { gap: [0, 0], feet: [0, 0] }, C = PS.data.CLUBS.filter(c => !c.lg), tot = { goals: 0, shots: 0, onT: 0, passes: 0, passOk: 0, corners: 0, fouls: 0, offsides: 0, saves: 0 }, lines = [];
     for (let i = 0; i < n; i++) {
       const a = C[i % C.length], b = C[(i * 5 + 3) % C.length];
       const G = PS.Match.create({ teams: [a, b], mode: 'team', halfLen: half, auto: true });
-      let guard = 0; while (!G.over && guard++ < 1e5) { PS.Match.step(G, 1 / 30); if (G.phase === 'half') PS.Match.resume(G); }
+      let guard = 0; while (!G.over && guard++ < 1e5) { PS.Match.step(G, 1 / 30); if (G.phase === 'half') PS.Match.resume(G); if (INV) invariants(G); }
+      subs += G.teams[0].subs + G.teams[1].subs;
       if (!G.over) throw new Error('match did not finish: ' + a.ab + ' v ' + b.ab);
       const s = G.stats; tot.goals += G.score[0] + G.score[1];
       for (const k of ['shots', 'onT', 'passes', 'passOk', 'corners', 'fouls', 'offsides', 'saves']) tot[k] += s[0][k] + s[1][k];
@@ -26,6 +40,7 @@
     }
     for (const k in tot) tot[k] = +(tot[k] / n).toFixed(1);
     tot.passPct = Math.round(tot.passOk / tot.passes * 100);
+    tot.subs = +(subs / n).toFixed(1);
     /* tackles on a ball between touches against one at his feet: the gap should be the better moment */
     tot.tackleGap = tk.gap[1] ? `${tk.gap[0]}/${tk.gap[1]} ${Math.round(tk.gap[0] / tk.gap[1] * 100)}%` : '-';
     tot.tackleFeet = tk.feet[1] ? `${tk.feet[0]}/${tk.feet[1]} ${Math.round(tk.feet[0] / tk.feet[1] * 100)}%` : '-';
@@ -44,5 +59,5 @@
     return K.C.summary;
   }
   window.H = { matches, season };
-  if (inNode && require.main === module) { const r = matches(+(process.argv[2] || 10), +(process.argv[3] || 180)); console.log(r.results.join('\n')); console.log(r.perMatch); }
+  if (inNode && require.main === module) { const r = matches(+(process.argv[2] || 10), +(process.argv[3] || 180)); if (INV) console.log('invariants held every tick'); console.log(r.results.join('\n')); console.log(r.perMatch); }
 })();

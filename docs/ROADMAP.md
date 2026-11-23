@@ -10,6 +10,7 @@ Update this file after every item.
 - **Rollback points:** before every push to `main`, add a line below with the commit `main` is on and what the push
   brings. To go back: `git revert --no-edit <commit>..main`, then push `main`.
 - **Rollback points** (newest first; the commit is the last good `main` before that change):
+  - `07a7b57`, before the team AI: styles, one back line with a trap, runs into space, overlaps, corner routines, stamina and substitutions (2026-11-23).
   - `38e8a5f`, before skill moves and defending (2026-11-23).
   - `81354af`, before the ball at the feet: touches, close control, first touch, half-turn, turning, shielding (2026-11-23).
   - `8dbdbd2`, before the passing work: pace from the hold, lob swipe, open-man assist, one-twos, chest control, computer shot tuning (2026-11-23).
@@ -23,7 +24,7 @@ Update this file after every item.
 
 0. `node tools/world.js 6`: six career seasons on quick results; every league, cup and tournament must finish, the
    save must round-trip and an old one-league save must load.
-1. `node tools/harness.js 20`: twenty computer-v-computer matches with the real engine, no browser. Every match must
+1. `node tools/harness.js 20 180 --inv` (the invariants every tick); `node tools/dribblelab.js 200`: twenty computer-v-computer matches with the real engine, no browser. Every match must
    finish; the averages should stay near "Balance" below.
 2. Serve the folder: `python3 tools/serve.py 48241`, open `http://localhost:48241/` at phone size (390×844). (The
    models and the modules need http; `file://` does not work any more.)
@@ -106,6 +107,15 @@ Update this file after every item.
 - [x] Defending: your man jockeys near the carrier; contain first then tackle wins 45% against 33% diving in; hold Tackle to close; double tap Switch / Press for a second man; shoulder challenges; fouls from contact (from behind, at speed, a lunge)
 - [ ] Advantage played on
 
+### Team AI (2026-11-23)
+- [x] Club styles from the name: possession (shorter, wider support), counter (deep block, forwards stay up), direct (forwards higher), high press (high block)
+- [x] The back four hold one line; it steps up 5 m on a back pass (the offside trap); attackers read the line a beat late and passers can misjudge a tight call
+- [x] Runs into space: attackers score spots around their place (open, a clear lane, danger, onside) twice a second; full-backs overlap on their side in the final third
+- [x] Corner routines: near post, far post, short, edge of the box
+- [x] Stamina from hard running and legs that go over ninety minutes (strength helps); three substitutions a side at dead balls after the hour, never you
+- [x] Invariants checked every tick in the harness (`--inv`)
+- [ ] More offsides (0.1 a match; real is about 2), long throws, a penalty shootout played on the pitch (cup draws are decided off it)
+
 ### M3 The world
 - [x] Seven leagues in seven countries (England, Spain, Italy, Germany, France, Brazil, USA), 72 invented clubs, all
       simulated round by round alongside yours; transfers from any of them (2026-11-23)
@@ -131,6 +141,8 @@ chip v keeper 7 m out          0      1     80     76     73     62   (v a keepe
 
 ## Balance (node tools/harness.js, 48 matches of 3-minute halves)
 
-Per match (after the passing work, 2026-11-23, Premier Division clubs): about 3 goals (2.7 to 3.6 between runs), 15 shots
+Per match (after the team AI, 2026-11-23, `node tools/harness.js 48 180 --inv`): 2.8 goals, 12.6 shots (7.6 on
+target), passing 77%, 3.6 fouls, 0.1 offsides (low: noted), 4 substitutions, tackles 34% between touches and 25% at
+the feet, invariants held every tick. After the passing work (Premier Division clubs): about 3 goals (2.7 to 3.6 between runs), 15 shots
 (10 on target), about 170 passes at 79-80%, 1.2 corners, 2.6 fouls, 7 saves. Before it: 2.2 goals, 14 shots, 155
 passes at 75%. Lofted passes are chested down by the man they are for; the computer only lofts to a man with room. Possession lands near 50/50 between even sides; stronger clubs win more but not always.
