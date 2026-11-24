@@ -72,8 +72,8 @@
     },
     "saves": {
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'password'",
-        ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'password'",
+        ".read": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'password' || auth.token.firebase.sign_in_provider === 'google.com' || auth.token.firebase.sign_in_provider === 'github.com')",
+        ".write": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'password' || auth.token.firebase.sign_in_provider === 'google.com' || auth.token.firebase.sign_in_provider === 'github.com')",
         ".validate": "newData.hasChildren(['at', 'dev', 'z', 'data']) && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000 && newData.child('dev').isString() && newData.child('dev').val().length <= 40 && (newData.child('z').val() === 0 || newData.child('z').val() === 1) && newData.child('data').isString() && newData.child('data').val().length <= 6000000",
         "at": {},
         "dev": {},
@@ -97,8 +97,8 @@
     },
     "accounts": {
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'password'",
-        ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'password'",
+        ".read": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'password' || auth.token.firebase.sign_in_provider === 'google.com' || auth.token.firebase.sign_in_provider === 'github.com')",
+        ".write": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'password' || auth.token.firebase.sign_in_provider === 'google.com' || auth.token.firebase.sign_in_provider === 'github.com')",
         ".validate": "newData.hasChildren(['name', 'at'])",
         "name": {
           ".validate": "newData.isString() && newData.val().length <= 24"
@@ -113,8 +113,8 @@
     },
     "soccer": {
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'password'",
-        ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'password'",
+        ".read": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'password' || auth.token.firebase.sign_in_provider === 'google.com' || auth.token.firebase.sign_in_provider === 'github.com')",
+        ".write": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'password' || auth.token.firebase.sign_in_provider === 'google.com' || auth.token.firebase.sign_in_provider === 'github.com')",
         ".validate": "newData.hasChildren(['at', 'dev', 'z', 'data']) && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000 && newData.child('dev').isString() && newData.child('dev').val().length <= 40 && newData.child('z').val() === 0 && newData.child('data').isString() && newData.child('data').val().length <= 3000000",
         "at": {},
         "dev": {},
